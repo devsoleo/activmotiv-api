@@ -1,0 +1,17 @@
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY NOT NULL,
+    uid varchar(8) NOT NULL UNIQUE,
+    password varchar(60) NOT NULL,
+    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE images (
+    id SERIAL PRIMARY KEY NOT NULL,
+    image INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    valence INTEGER NOT NULL,
+    arousal INTEGER NOT NULL,
+    hidden BOOLEAN DEFAULT FALSE,
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);

@@ -14,7 +14,8 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.15.6",
-    "node-pg-migrate": "^7.9.1"
+    "node-pg-migrate": "^7.9.1",
+    "nodemailer": "^7.0.3",
+    "pg": "^8.15.6"
   }
 }
