@@ -169,6 +169,13 @@ app.put('/images/:imageId/rating', authenticateToken, async (req, res) => {
   }
 })
 
+app.get('/notifications', authenticateToken, async (req, res) => {
+  return res.status(200).json([
+    { id: "0", title: "Questionnaire F-SUS", body: "Vous avez un questionnaire à remplir !", action: { type: "link", path: "", text: "Remplir le questionnaire" } },
+    { id: "1", title: "Complétez votre profil !", body: "Pensez à compléter votre profil et à choisir vos images !", action: { type: "link", path: "/(tabs)/(settings)/profile", text: "Choisir mes images" } },
+  ])
+})
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
