@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
 import helmet from 'helmet'
 import pool from './database/postgresql/index.js'
+import dayjs from 'dayjs'
 
 dotenv.config()
 
@@ -45,7 +46,7 @@ app.get('/csrf-token', (req, res) => {
 app.post('/first-login', async (req, res) => {
   const { uid, password } = req.body
 
-  if (!uid || !password) return res.status(400).json({ message: 'Bad Request' })
+  if (!uid || !password) return res.sendStatus(400)
 
   try {
     const client = await pool.getClient()
@@ -55,14 +56,14 @@ app.post('/first-login', async (req, res) => {
     return res.status(200).json({ messages: 'OK' })
   } catch (err) {
     console.log(err)
-    return res.status(500).json({ message: 'Internal Server Error' })
+    return res.sendStatus(500)
   }
 })
 
 app.post('/login', async (req, res) => {
   const { uid, password } = req.body
 
-  if (!uid || !password) return res.status(400).json({ message: 'Bad Request' })
+  if (!uid || !password) return res.sendStatus(400)
 
   try {
     const client = await pool.getClient()
@@ -73,12 +74,12 @@ app.post('/login', async (req, res) => {
     if (!user) {
       // Simuler une vérification afin d'éviter une faille de sécurité basée sur le temps de réponse
       await bcrypt.compare(password, '$2a$10$xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-      return res.status(401).json({ message: 'Unauthorized' })
+      return res.sendStatus(401)
     }
 
     const validPassword = await bcrypt.compare(password, user.password)
 
-    if (!validPassword) return res.status(401).json({ message: 'Unauthorized' })
+    if (!validPassword) return res.sendStatus(401)
 
     const token = jwt.sign({
       id: user.id,
@@ -91,25 +92,26 @@ app.post('/login', async (req, res) => {
     return res.status(200).json({ message: 'Login successful', token })
   } catch (err) {
     console.error(err)
-    return res.status(500).json({ message: 'Internal Server Error' })
+    return res.sendStatus(500)
   }
 })
 
-app.post('/create-account', authenticateToken, async (req, res) => {
+app.post('/admin/create-account', authenticateToken, async (req, res) => {
   const user = req.user
-  const { uid, password } = req.body
+  const { account_uid, account_password, account_is_admin } = req.body
 
-  if (!uid || !password) return res.status(400).json({ message: 'Bad Request' })
+  if (!user.admin) return res.sendStatus(403)
+  if (!account_uid || !account_password || !account_is_admin) return res.sendStatus(400)
 
   try {
     const client = await pool.getClient()
 
-    await client.query('INSERT INTO users(uid, password) VALUES($1, $2)', [uid, bcrypt.hashSync(password, 12)])
+    await client.query('INSERT INTO users(uid, password, admin) VALUES($1, $2, $3)', [account_uid, bcrypt.hashSync(account_password, 12), account_is_admin])
 
     return res.status(200).json({ messages: 'OK' })
   } catch (err) {
     console.log(err)
-    return res.status(500).json({ message: 'Internal Server Error' })
+    return res.sendStatus(500)
   }
 })
 
@@ -127,19 +129,11 @@ app.get('/images/:imageId/rating', authenticateToken, async (req, res) => {
 
     client.release()
 
-    return res.status(200).json({ message: 'OK', data: { valence, arousal } })
+    return res.status(200).json({ data: { valence, arousal } })
   } catch (err) {
     console.error(err)
-    return res.status(500).json({ message: 'Internal Server Error' })
+    return res.sendStatus(500)
   }
-})
-
-app.put('/images/:imageId/display', authenticateToken, async (req, res) => {
-  const user = req.user
-  const { imageId } = req.params
-  const { display } = req.body
-
-  if (!display) return res.status(400).json({ message: 'Bad Request' })
 })
 
 app.put('/images/:imageId/rating', authenticateToken, async (req, res) => {
@@ -147,7 +141,7 @@ app.put('/images/:imageId/rating', authenticateToken, async (req, res) => {
   const { imageId } = req.params
   const { valence, arousal } = req.body
 
-  if (!valence || !arousal) return res.status(400).json({ message: 'Bad Request' })
+  if (!valence || !arousal) return res.sendStatus(400)
 
   try {
     const client = await pool.getClient()
@@ -165,15 +159,68 @@ app.put('/images/:imageId/rating', authenticateToken, async (req, res) => {
     return res.status(200).json({ message: 'OK' })
   } catch (err) {
     console.error(err)
-    return res.status(500).json({ message: 'Internal Server Error' })
+    return res.sendStatus(500)
   }
 })
 
 app.get('/notifications', authenticateToken, async (req, res) => {
   return res.status(200).json([
-    { id: "0", title: "Questionnaire F-SUS", body: "Vous avez un questionnaire à remplir !", action: { type: "link", path: "", text: "Remplir le questionnaire" } },
-    { id: "1", title: "Complétez votre profil !", body: "Pensez à compléter votre profil et à choisir vos images !", action: { type: "link", path: "/(tabs)/(settings)/profile", text: "Choisir mes images" } },
+    { id: "0", title: "Questionnaire F-SUS", body: "Vous avez un questionnaire à remplir !", action: { type: "link", path: "/(forms)/fsus", text: "Remplir le questionnaire" } },
+    { id: "1", title: "Complétez votre profil !", body: "Pensez à compléter votre profil et à choisir vos images !", action: { type: "link", path: "/(tabs)/(settings)/images", text: "Choisir mes images" } },
   ])
+})
+
+app.get('/tracking/opening', authenticateToken, async (req, res) => {
+  return res.status(200).json([
+    {label: 'L', value: 25},
+    {label: 'M', value: 50},
+    {label: 'M', value: 74},
+    {label: 'J', value: 32},
+    {label: 'V', value: 60},
+    {label: 'S', value: 25},
+    {label: 'D', value: 30}
+  ])
+})
+
+app.get('/tracking/opening/amount', authenticateToken, async (req, res) => {
+  const user = req.user
+
+  try {
+    const client = await pool.getClient()
+
+    const q1 = await client.query('SELECT id FROM tracking_opening WHERE user_id = $1', [user.id])
+
+    client.release()
+
+    return res.status(200).json({ data: { amount: q1.rowCount } })
+  } catch (err) {
+    console.error(err)
+    return res.sendStatus(500)
+  }
+})
+
+app.put('/tracking/opening', authenticateToken, async (req, res) => {
+  const user = req.user
+  const { measurements } = req.body
+
+  if (!measurements) return res.sendStatus(400)
+
+  try {
+    const client = await pool.getClient()
+
+    for (const timestamp of measurements) {
+      const formated_date = dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')
+
+      await client.query('INSERT INTO tracking_opening (user_id, measurement_date) VALUES ($1, $2)', [user.id, formated_date])
+    }
+
+    client.release()
+
+    return res.status(200).json({ message: 'OK' })
+  } catch (err) {
+    console.error(err)
+    return res.sendStatus(500)
+  }
 })
 
 app.listen(PORT, () => {
