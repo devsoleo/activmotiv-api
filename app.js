@@ -100,22 +100,55 @@ app.post('/login', async (req, res) => {
       return res.sendStatus(401)
     }
 
-    const token = jwt.sign({
+    const payload = {
       id: user.id,
       uid: user.uid,
       admin: user.admin
-    }, JWT_SECRET, { expiresIn: '24h' })
+    }
+
+    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '10sec' })
+    const refreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' })
 
     client.release()
 
     logger.info({ message: "Login successful", uid: user.uid })
 
-    return res.status(200).json({ message: 'Login successful', token })
+    return res.status(200).json({ accessToken, refreshToken })
   } catch (err) {
     logger.error(err)
     return res.sendStatus(500)
   }
 })
+
+app.post('/refresh', async (req, res) => {
+  const { refreshToken } = req.body
+
+  if (!refreshToken) return res.sendStatus(401)
+
+  try {
+    jwt.verify(refreshToken, process.env.JWT_SECRET, (err, user) => {
+      if (err) {
+        logger.error(err)
+        return res.sendStatus(403)
+      }
+
+      const payload = {
+        id: user.id,
+        uid: user.uid,
+        admin: user.admin
+      }
+
+      const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '10sec' })
+      const newRefreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' })
+
+      return res.status(200).json({ accessToken: newAccessToken, refreshToken: newRefreshToken })
+    })
+  } catch (err) {
+    logger.error(err)
+    return res.sendStatus(500)
+  }
+})
+
 
 // Admin
 app.post('/admin/create-account', authenticateToken, async (req, res) => {
@@ -155,7 +188,7 @@ app.get('/images/:imageId/rating', authenticateToken, async (req, res) => {
 
     return res.status(200).json({ valence, arousal })
   } catch (err) {
-    console.error(err)
+    logger.error(err)
     return res.sendStatus(500)
   }
 })
@@ -182,7 +215,7 @@ app.put('/images/:imageId/rating', authenticateToken, async (req, res) => {
 
     return res.sendStatus(200)
   } catch (err) {
-    console.error(err)
+    logger.error(err)
     return res.sendStatus(500)
   }
 })
@@ -220,7 +253,7 @@ app.get('/tracking/opening/amount', authenticateToken, async (req, res) => {
 
     return res.status(200).json({ amount: q1.rowCount })
   } catch (err) {
-    console.error(err)
+    logger.error(err)
     return res.sendStatus(500)
   }
 })
@@ -244,9 +277,19 @@ app.put('/tracking/opening', authenticateToken, async (req, res) => {
 
     return res.sendStatus(200)
   } catch (err) {
-    console.error(err)
+    logger.error(err)
     return res.sendStatus(500)
   }
+})
+
+// Forms
+app.post('/forms/fsus', authenticateToken, async (req, res) => {
+  const user = req.user
+  const { results } = req.body
+
+  if (!results) return res.sendStatus(400)
+
+  return res.sendStatus(200)
 })
 
 app.listen(PORT, () => {
