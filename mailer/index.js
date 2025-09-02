@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+import logger from '../logger/index.js'
 
 const SMTP_HOST = process.env.SMTP_HOST
 const SMTP_USERNAME = process.env.SMTP_USERNAME
@@ -16,15 +17,14 @@ const transporter = nodemailer.createTransport({
 })
 
 const sendMail = async (to, subject, html) => {
-  const info = await transporter.sendMail({
+  await transporter.sendMail({
     from: SMTP_SENDER,
     to,
     subject,
-    // text: "Hello world?", // plain‑text body
     html,
   })
 
-  console.log("Message sent:", info.messageId)
+  logger.info({ message: "Mail send", to, subject })
 }
 
 export { sendMail }

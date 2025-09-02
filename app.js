@@ -3,8 +3,10 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
 import helmet from 'helmet'
-import pool from './database/postgresql/index.js'
 import dayjs from 'dayjs'
+
+import pool from './database/postgresql/index.js'
+import logger from './logger/index.js'
 
 dotenv.config()
 
@@ -19,6 +21,16 @@ app.disable('x-powered-by')
 const PORT = process.env.PORT || 3000
 const JWT_SECRET = process.env.JWT_SECRET
 
+app.use((req, res, next) => {
+  const from = req.headers["x-forwarded-for"] || req.connection.remoteAddress
+
+  logger.http({
+    message: req.method + ' ' + req.originalUrl + ' ' + from
+  })
+
+  next()
+})
+
 // Security
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization']
@@ -28,7 +40,7 @@ function authenticateToken(req, res, next) {
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      console.error(err)
+      logger.error(err)
       return res.sendStatus(403)
     }
 
@@ -53,9 +65,9 @@ app.post('/first-login', async (req, res) => {
 
     await client.query('UPDATE users SET password = $1 WHERE uid = $2', [bcrypt.hashSync(password, 12), uid])
 
-    return res.status(200).json({ messages: 'OK' })
+    return res.sendStatus(200)
   } catch (err) {
-    console.log(err)
+    logger.error(err)
     return res.sendStatus(500)
   }
 })
@@ -73,13 +85,20 @@ app.post('/login', async (req, res) => {
 
     if (!user) {
       // Simuler une vérification afin d'éviter une faille de sécurité basée sur le temps de réponse
-      await bcrypt.compare(password, '$2a$10$xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+      await bcrypt.compare(password, '$2b$12$xhpvflnGo7ajmPMp97U2Geq9yBPOXnLUc.wj/LEU291SstVuzOrSO')
+
+      logger.warn({ message: "Login failed", reason: "Unknown user", uid })
+
       return res.sendStatus(401)
     }
 
     const validPassword = await bcrypt.compare(password, user.password)
 
-    if (!validPassword) return res.sendStatus(401)
+    if (!validPassword) {
+      logger.warn({ message: "Login failed", reason: "Wrong password", uid })
+
+      return res.sendStatus(401)
+    }
 
     const token = jwt.sign({
       id: user.id,
@@ -89,13 +108,16 @@ app.post('/login', async (req, res) => {
 
     client.release()
 
+    logger.info({ message: "Login successful", uid: user.uid })
+
     return res.status(200).json({ message: 'Login successful', token })
   } catch (err) {
-    console.error(err)
+    logger.error(err)
     return res.sendStatus(500)
   }
 })
 
+// Admin
 app.post('/admin/create-account', authenticateToken, async (req, res) => {
   const user = req.user
   const { account_uid, account_password, account_is_admin } = req.body
@@ -108,9 +130,11 @@ app.post('/admin/create-account', authenticateToken, async (req, res) => {
 
     await client.query('INSERT INTO users(uid, password, admin) VALUES($1, $2, $3)', [account_uid, bcrypt.hashSync(account_password, 12), account_is_admin])
 
-    return res.status(200).json({ messages: 'OK' })
+    logger.info({ message: "User created", uid: account_uid })
+
+    return res.sendStatus(200)
   } catch (err) {
-    console.log(err)
+    logger.error(err)
     return res.sendStatus(500)
   }
 })
@@ -129,7 +153,7 @@ app.get('/images/:imageId/rating', authenticateToken, async (req, res) => {
 
     client.release()
 
-    return res.status(200).json({ data: { valence, arousal } })
+    return res.status(200).json({ valence, arousal })
   } catch (err) {
     console.error(err)
     return res.sendStatus(500)
@@ -156,13 +180,14 @@ app.put('/images/:imageId/rating', authenticateToken, async (req, res) => {
 
     client.release()
 
-    return res.status(200).json({ message: 'OK' })
+    return res.sendStatus(200)
   } catch (err) {
     console.error(err)
     return res.sendStatus(500)
   }
 })
 
+// Notifications
 app.get('/notifications', authenticateToken, async (req, res) => {
   return res.status(200).json([
     { id: "0", title: "Questionnaire F-SUS", body: "Vous avez un questionnaire à remplir !", action: { type: "link", path: "/(forms)/fsus", text: "Remplir le questionnaire" } },
@@ -170,6 +195,7 @@ app.get('/notifications', authenticateToken, async (req, res) => {
   ])
 })
 
+// Tracking
 app.get('/tracking/opening', authenticateToken, async (req, res) => {
   return res.status(200).json([
     {label: 'L', value: 25},
@@ -192,7 +218,7 @@ app.get('/tracking/opening/amount', authenticateToken, async (req, res) => {
 
     client.release()
 
-    return res.status(200).json({ data: { amount: q1.rowCount } })
+    return res.status(200).json({ amount: q1.rowCount })
   } catch (err) {
     console.error(err)
     return res.sendStatus(500)
@@ -216,7 +242,7 @@ app.put('/tracking/opening', authenticateToken, async (req, res) => {
 
     client.release()
 
-    return res.status(200).json({ message: 'OK' })
+    return res.sendStatus(200)
   } catch (err) {
     console.error(err)
     return res.sendStatus(500)
@@ -224,5 +250,5 @@ app.put('/tracking/opening', authenticateToken, async (req, res) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
+  logger.info(`Server running on port ${PORT}`)
 })
