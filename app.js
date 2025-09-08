@@ -63,7 +63,15 @@ app.post('/first-login', async (req, res) => {
   try {
     const client = await pool.getClient()
 
-    await client.query('UPDATE users SET password = $1 WHERE uid = $2', [bcrypt.hashSync(password, 12), uid])
+    const q1 = await client.query('UPDATE users SET password = $1 WHERE uid = $2 AND password IS NULL', [bcrypt.hashSync(password, 12), uid])
+
+    if (q1.rowCount == 0) {
+      logger.warn({ message: 'Password hasn\'t been created', uid })
+
+      return res.sendStatus(500)
+    }
+
+    logger.info({ message: 'Password created', uid })
 
     return res.sendStatus(200)
   } catch (err) {
@@ -184,15 +192,15 @@ app.post('/refresh', async (req, res) => {
 // Admin
 app.post('/admin/create-account', authenticateToken, async (req, res) => {
   const user = req.user
-  const { account_uid, account_password, account_is_admin } = req.body
+  const { account_uid, account_is_admin } = req.body
 
   if (!user.admin) return res.sendStatus(403)
-  if (!account_uid || !account_password || !account_is_admin) return res.sendStatus(400)
+  if (!account_uid || !account_is_admin) return res.sendStatus(400)
 
   try {
     const client = await pool.getClient()
 
-    await client.query('INSERT INTO users(uid, password, admin) VALUES($1, $2, $3)', [account_uid, bcrypt.hashSync(account_password, 12), account_is_admin])
+    await client.query('INSERT INTO users(uid, admin) VALUES($1, $2)', [account_uid, account_is_admin])
 
     logger.info({ message: "User created", uid: account_uid })
 
@@ -215,7 +223,6 @@ app.get('/images/:imageId/rating', authenticateToken, async (req, res) => {
 
     const { valence, arousal } = q1.rows[0] || { valence: null, arousal: null }
 
-    console.log({ valence, arousal })
     client.release()
 
     return res.status(200).json({ valence, arousal })
