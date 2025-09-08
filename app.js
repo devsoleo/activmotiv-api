@@ -72,6 +72,37 @@ app.post('/first-login', async (req, res) => {
   }
 })
 
+app.post('/auth/reset-password', authenticateToken, async (req, res) => {
+  const user = req.user
+  const { current_password, new_password } = req.body
+
+  if ((!current_password || !new_password) || (current_password == new_password)) return res.sendStatus(400)
+
+  try {
+    const client = await pool.getClient()
+
+    const q1 = await client.query('SELECT password FROM users WHERE uid = $1', [user.uid])
+    const u = q1.rows[0]
+
+    const validPassword = await bcrypt.compare(current_password, u.password)
+
+    if (!validPassword) {
+      logger.warn({ message: "Password reset failed", reason: "Wrong current password", uid: user.uid })
+
+      return res.sendStatus(401)
+    }
+
+    await client.query('UPDATE users SET password = $1 WHERE uid = $2', [bcrypt.hashSync(new_password, 12), user.uid])
+
+    logger.info({ message: 'Password reset', uid: user.uid })
+
+    return res.sendStatus(200)
+  } catch (err) {
+    logger.error(err)
+    return res.sendStatus(500)
+  }
+})
+
 app.post('/login', async (req, res) => {
   const { uid, password } = req.body
 
@@ -80,10 +111,10 @@ app.post('/login', async (req, res) => {
   try {
     const client = await pool.getClient()
 
-    const userQuery = await client.query('SELECT * FROM users WHERE uid = $1', [uid])
-    const user = userQuery.rows[0]
+    const q1 = await client.query('SELECT * FROM users WHERE uid = $1', [uid])
+    const u = q1.rows[0]
 
-    if (!user) {
+    if (!u) {
       // Simuler une vérification afin d'éviter une faille de sécurité basée sur le temps de réponse
       await bcrypt.compare(password, '$2b$12$xhpvflnGo7ajmPMp97U2Geq9yBPOXnLUc.wj/LEU291SstVuzOrSO')
 
@@ -92,7 +123,7 @@ app.post('/login', async (req, res) => {
       return res.sendStatus(401)
     }
 
-    const validPassword = await bcrypt.compare(password, user.password)
+    const validPassword = await bcrypt.compare(password, u.password)
 
     if (!validPassword) {
       logger.warn({ message: "Login failed", reason: "Wrong password", uid })
@@ -101,17 +132,17 @@ app.post('/login', async (req, res) => {
     }
 
     const payload = {
-      id: user.id,
-      uid: user.uid,
-      admin: user.admin
+      id: u.id,
+      uid: u.uid,
+      admin: u.admin
     }
 
-    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '10sec' })
+    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '10min' })
     const refreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' })
 
     client.release()
 
-    logger.info({ message: "Login successful", uid: user.uid })
+    logger.info({ message: "Login successful", uid: u.uid })
 
     return res.status(200).json({ accessToken, refreshToken })
   } catch (err) {
@@ -126,25 +157,25 @@ app.post('/refresh', async (req, res) => {
   if (!refreshToken) return res.sendStatus(401)
 
   try {
-    jwt.verify(refreshToken, process.env.JWT_SECRET, (err, user) => {
+    jwt.verify(refreshToken, process.env.JWT_SECRET, (err, payload) => {
       if (err) {
         logger.error(err)
         return res.sendStatus(403)
       }
 
-      const payload = {
-        id: user.id,
-        uid: user.uid,
-        admin: user.admin
-      }
+      delete payload.iat
+      delete payload.exp
 
-      const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '10sec' })
+      console.log(payload)
+
+      const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '10min' })
       const newRefreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' })
 
       return res.status(200).json({ accessToken: newAccessToken, refreshToken: newRefreshToken })
     })
   } catch (err) {
     logger.error(err)
+    console.error(err)
     return res.sendStatus(500)
   }
 })
@@ -182,8 +213,9 @@ app.get('/images/:imageId/rating', authenticateToken, async (req, res) => {
 
     const q1 = await client.query('SELECT id, valence, arousal FROM images WHERE image = $1 AND user_id = $2', [imageId, user.id])
 
-    const { valence, arousal } = q1.rows[0] || { valence: 1, arousal: 1 }
+    const { valence, arousal } = q1.rows[0] || { valence: null, arousal: null }
 
+    console.log({ valence, arousal })
     client.release()
 
     return res.status(200).json({ valence, arousal })
@@ -198,7 +230,7 @@ app.put('/images/:imageId/rating', authenticateToken, async (req, res) => {
   const { imageId } = req.params
   const { valence, arousal } = req.body
 
-  if (!valence || !arousal) return res.sendStatus(400)
+  if (!valence && !arousal) return res.sendStatus(400)
 
   try {
     const client = await pool.getClient()

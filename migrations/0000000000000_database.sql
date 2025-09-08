@@ -11,8 +11,8 @@ CREATE TABLE images (
     id SERIAL PRIMARY KEY NOT NULL,
     image INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
-    valence INTEGER NOT NULL,
-    arousal INTEGER NOT NULL,
+    valence INTEGER,
+    arousal INTEGER,
     hidden BOOLEAN DEFAULT FALSE,
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
