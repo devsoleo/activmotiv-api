@@ -4,9 +4,11 @@ import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
 import helmet from 'helmet'
 import dayjs from 'dayjs'
+import cors from 'cors'
 
-import pool from './database/postgresql/index.js'
 import logger from './logger/index.js'
+import pool from './database/postgresql/index.js'
+import { sendMail } from './mailer/index.js'
 
 dotenv.config()
 
@@ -17,6 +19,10 @@ const app = express()
 app.use(express.json())
 app.use(helmet())
 app.disable('x-powered-by')
+
+app.use(cors({
+  origin: 'https://admin.activmotiv.fr'
+}))
 
 const PORT = process.env.PORT || 3000
 const JWT_SECRET = process.env.JWT_SECRET
@@ -55,7 +61,7 @@ app.get('/csrf-token', (req, res) => {
 })
 
 // Authentication
-app.post('/first-login', async (req, res) => {
+app.post('/auth/first-login', async (req, res) => {
   const { uid, password } = req.body
 
   if (!uid || !password) return res.sendStatus(400)
@@ -111,7 +117,7 @@ app.post('/auth/reset-password', authenticateToken, async (req, res) => {
   }
 })
 
-app.post('/login', async (req, res) => {
+app.post('/auth/login', async (req, res) => {
   const { uid, password } = req.body
 
   if (!uid || !password) return res.sendStatus(400)
@@ -174,8 +180,6 @@ app.post('/refresh', async (req, res) => {
       delete payload.iat
       delete payload.exp
 
-      console.log(payload)
-
       const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '10min' })
       const newRefreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' })
 
@@ -183,7 +187,6 @@ app.post('/refresh', async (req, res) => {
     })
   } catch (err) {
     logger.error(err)
-    console.error(err)
     return res.sendStatus(500)
   }
 })
@@ -327,6 +330,19 @@ app.post('/forms/fsus', authenticateToken, async (req, res) => {
   const { results } = req.body
 
   if (!results) return res.sendStatus(400)
+
+  const timestamp = Date.now()
+
+  const filename = `fsus-${user.uid}-${dayjs(timestamp).format('DD-MM-YYYY')}.csv`
+
+  sendMail(`FSUS de ${user.uid}`, `Voir ${filename} en pièce-jointe.`, [
+      {
+        filename,
+        content: `uid;date;${Array.from({length: 10}, (_, i) => `q${i+1}`).join(";")}\n${user.uid};${dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')};${results.toString().split(",").join(";")}`,
+      },
+  ])
+
+  logger.info({ message: "Form completed", results: results.toString() })
 
   return res.sendStatus(200)
 })

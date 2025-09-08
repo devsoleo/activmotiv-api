@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import logger from '../logger/index.js'
 
+const SMTP_TO = process.env.SMTP_TO
 const SMTP_HOST = process.env.SMTP_HOST
 const SMTP_USERNAME = process.env.SMTP_USERNAME
 const SMTP_PASSWORD = process.env.SMTP_PASSWORD
@@ -16,15 +17,16 @@ const transporter = nodemailer.createTransport({
   },
 })
 
-const sendMail = async (to, subject, html) => {
+const sendMail = async (subject, html, attachments) => {
   await transporter.sendMail({
     from: SMTP_SENDER,
-    to,
+    to: SMTP_TO,
     subject,
     html,
+    attachments
   })
 
-  logger.info({ message: "Mail send", to, subject })
+  logger.info({ message: "Mail send", subject })
 }
 
 export { sendMail }
