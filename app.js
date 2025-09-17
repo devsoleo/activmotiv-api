@@ -12,6 +12,14 @@ import { sendMail } from './mailer/index.js'
 
 dotenv.config()
 
+const NODE_ENV = process.env.NODE_ENV || 'development'
+
+const PORT = process.env.PORT || 3000
+const JWT_SECRET = process.env.JWT_SECRET
+
+const JWT_ACCESS_TOKEN_EXPIRES_IN = '1y'
+const JWT_REFRESH_TOKEN_EXPIRES_IN = '1y'
+
 await pool.migrateDatabase()
 
 const app = express()
@@ -21,18 +29,13 @@ app.use(helmet())
 app.disable('x-powered-by')
 
 app.use(cors({
-  origin: 'https://admin.activmotiv.fr'
+  origin: NODE_ENV == 'production' ? 'https://admin.activmotiv.fr' : '*'
 }))
-
-const PORT = process.env.PORT || 3000
-const JWT_SECRET = process.env.JWT_SECRET
 
 app.use((req, res, next) => {
   const from = req.headers["x-forwarded-for"] || req.connection.remoteAddress
 
-  logger.http({
-    message: req.method + ' ' + req.originalUrl + ' ' + from
-  })
+  logger.http({ message: `${req.method} ${req.originalUrl} ${from}` })
 
   next()
 })
@@ -66,9 +69,9 @@ app.post('/auth/first-login', async (req, res) => {
 
   if (!uid || !password) return res.sendStatus(400)
 
-  try {
-    const client = await pool.getClient()
+  const client = await pool.getClient()
 
+  try {
     const q1 = await client.query('UPDATE users SET password = $1 WHERE uid = $2 AND password IS NULL', [bcrypt.hashSync(password, 12), uid])
 
     if (q1.rowCount == 0) {
@@ -83,6 +86,8 @@ app.post('/auth/first-login', async (req, res) => {
   } catch (err) {
     logger.error(err)
     return res.sendStatus(500)
+  } finally {
+    client.release()
   }
 })
 
@@ -92,9 +97,9 @@ app.post('/auth/reset-password', authenticateToken, async (req, res) => {
 
   if ((!current_password || !new_password) || (current_password == new_password)) return res.sendStatus(400)
 
-  try {
-    const client = await pool.getClient()
+  const client = await pool.getClient()
 
+  try {
     const q1 = await client.query('SELECT password FROM users WHERE uid = $1', [user.uid])
     const u = q1.rows[0]
 
@@ -114,6 +119,8 @@ app.post('/auth/reset-password', authenticateToken, async (req, res) => {
   } catch (err) {
     logger.error(err)
     return res.sendStatus(500)
+  } finally {
+    client.release()
   }
 })
 
@@ -122,9 +129,9 @@ app.post('/auth/login', async (req, res) => {
 
   if (!uid || !password) return res.sendStatus(400)
 
-  try {
-    const client = await pool.getClient()
+  const client = await pool.getClient()
 
+  try {
     const q1 = await client.query('SELECT * FROM users WHERE uid = $1', [uid])
     const u = q1.rows[0]
 
@@ -136,6 +143,8 @@ app.post('/auth/login', async (req, res) => {
 
       return res.sendStatus(401)
     }
+
+    await client.query('UPDATE users SET last_login = NOW() WHERE uid = $1', [u.uid])
 
     const validPassword = await bcrypt.compare(password, u.password)
 
@@ -151,10 +160,8 @@ app.post('/auth/login', async (req, res) => {
       admin: u.admin
     }
 
-    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '10min' })
-    const refreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' })
-
-    client.release()
+    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_ACCESS_TOKEN_EXPIRES_IN })
+    const refreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_REFRESH_TOKEN_EXPIRES_IN })
 
     logger.info({ message: "Login successful", uid: u.uid })
 
@@ -162,10 +169,12 @@ app.post('/auth/login', async (req, res) => {
   } catch (err) {
     logger.error(err)
     return res.sendStatus(500)
+  } finally {
+    client.release()
   }
 })
 
-app.post('/refresh', async (req, res) => {
+app.post('/auth/refresh', async (req, res) => {
   const { refreshToken } = req.body
 
   if (!refreshToken) return res.sendStatus(401)
@@ -180,8 +189,10 @@ app.post('/refresh', async (req, res) => {
       delete payload.iat
       delete payload.exp
 
-      const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '10min' })
-      const newRefreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' })
+      const newAccessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_ACCESS_TOKEN_EXPIRES_IN })
+      const newRefreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_REFRESH_TOKEN_EXPIRES_IN })
+
+      logger.info({ message: "Token successfully renewed !" })
 
       return res.status(200).json({ accessToken: newAccessToken, refreshToken: newRefreshToken })
     })
@@ -200,9 +211,9 @@ app.post('/admin/create-account', authenticateToken, async (req, res) => {
   if (!user.admin) return res.sendStatus(403)
   if (!account_uid || !account_is_admin) return res.sendStatus(400)
 
-  try {
-    const client = await pool.getClient()
+  const client = await pool.getClient()
 
+  try {
     await client.query('INSERT INTO users(uid, admin) VALUES($1, $2)', [account_uid, account_is_admin])
 
     logger.info({ message: "User created", uid: account_uid })
@@ -211,62 +222,82 @@ app.post('/admin/create-account', authenticateToken, async (req, res) => {
   } catch (err) {
     logger.error(err)
     return res.sendStatus(500)
+  } finally {
+    client.release()
   }
 })
 
-// Images
-app.get('/images/:imageId/rating', authenticateToken, async (req, res) => {
+// SAM
+app.get('/sam/images', authenticateToken, async (req, res) => {
   const user = req.user
-  const { imageId } = req.params
+
+  const client = await pool.getClient()
 
   try {
-    const client = await pool.getClient()
+    const q1 = await client.query('SELECT image, valence, arousal, hidden FROM images WHERE user_id = $1', [user.id])
 
-    const q1 = await client.query('SELECT id, valence, arousal FROM images WHERE image = $1 AND user_id = $2', [imageId, user.id])
-
-    const { valence, arousal } = q1.rows[0] || { valence: null, arousal: null }
-
-    client.release()
-
-    return res.status(200).json({ valence, arousal })
+    return res.status(200).json({ images: q1.rows })
   } catch (err) {
     logger.error(err)
     return res.sendStatus(500)
+  } finally {
+    client.release()
   }
 })
 
-app.put('/images/:imageId/rating', authenticateToken, async (req, res) => {
+app.get('/sam/image/:imageId', authenticateToken, async (req, res) => {
   const user = req.user
   const { imageId } = req.params
-  const { valence, arousal } = req.body
 
-  if (!valence && !arousal) return res.sendStatus(400)
+  const client = await pool.getClient()
 
   try {
-    const client = await pool.getClient()
+    const q1 = await client.query('SELECT image, valence, arousal, hidden FROM images WHERE image = $1 AND user_id = $2', [imageId, user.id])
 
+    if (q1.rowCount == 0) return res.sendStatus(404)
+
+    return res.status(200).json(q1.rows[0])
+  } catch (err) {
+    logger.error(err)
+    return res.sendStatus(500)
+  } finally {
+    client.release()
+  }
+})
+
+app.put('/sam/image/:imageId', authenticateToken, async (req, res) => {
+  const user = req.user
+  const { imageId } = req.params
+  const { valence, arousal, hidden } = req.body
+
+  if (!valence && !arousal && !hidden) return res.sendStatus(400)
+
+  const client = await pool.getClient()
+
+  try {
     const q1 = await client.query('SELECT * FROM images WHERE image = $1 AND user_id = $2', [imageId, user.id])
 
     if (q1.rows.length == 0) {
-      await client.query('INSERT INTO images (image, user_id, valence, arousal) VALUES ($1, $2, $3, $4) RETURNING id', [imageId, user.id, valence, arousal])
+      await client.query('INSERT INTO images (image, user_id, valence, arousal, hidden) VALUES ($1, $2, $3, $4, $5) RETURNING id', [imageId, user.id, valence, arousal, hidden])
     } else {
-      await client.query('UPDATE images SET valence = $1, arousal = $2 WHERE image = $3 AND user_id = $4', [valence, arousal, imageId, user.id])
+      await client.query('UPDATE images SET valence = $1, arousal = $2, hidden = $3 WHERE image = $4 AND user_id = $5', [valence, arousal, hidden, imageId, user.id])
     }
-
-    client.release()
 
     return res.sendStatus(200)
   } catch (err) {
     logger.error(err)
     return res.sendStatus(500)
+  } finally {
+    client.release()
   }
 })
 
 // Notifications
 app.get('/notifications', authenticateToken, async (req, res) => {
   return res.status(200).json([
-    { id: "0", title: "Questionnaire F-SUS", body: "Vous avez un questionnaire à remplir !", action: { type: "link", path: "/(forms)/fsus", text: "Remplir le questionnaire" } },
-    { id: "1", title: "Complétez votre profil !", body: "Pensez à compléter votre profil et à choisir vos images !", action: { type: "link", path: "/(tabs)/(settings)/images", text: "Choisir mes images" } },
+    { id: "0", title: "F-SUS", body: "Vous avez votre F-SUS à remplir !", action: { type: "link", path: "/(forms)/fsus", text: "Remplir mon F-SUS" } },
+    { id: "1", title: "Questionnaire", body: "Vous avez un questionnaire à remplir !", action: { type: "link", path: "/(forms)/generic", text: "Remplir le questionnaire" } },
+    { id: "2", title: "Évaluez vos images", body: "Pensez à évaluer vos images !", action: { type: "link", path: "/(tabs)/(settings)/images", text: "Évaluer mes images" } },
   ])
 })
 
@@ -286,17 +317,17 @@ app.get('/tracking/opening', authenticateToken, async (req, res) => {
 app.get('/tracking/opening/amount', authenticateToken, async (req, res) => {
   const user = req.user
 
+  const client = await pool.getClient()
+
   try {
-    const client = await pool.getClient()
-
     const q1 = await client.query('SELECT id FROM tracking_opening WHERE user_id = $1', [user.id])
-
-    client.release()
 
     return res.status(200).json({ amount: q1.rowCount })
   } catch (err) {
     logger.error(err)
     return res.sendStatus(500)
+  } finally {
+    client.release()
   }
 })
 
@@ -306,21 +337,21 @@ app.put('/tracking/opening', authenticateToken, async (req, res) => {
 
   if (!measurements) return res.sendStatus(400)
 
-  try {
-    const client = await pool.getClient()
+  const client = await pool.getClient()
 
+  try {
     for (const timestamp of measurements) {
       const formated_date = dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')
 
       await client.query('INSERT INTO tracking_opening (user_id, measurement_date) VALUES ($1, $2)', [user.id, formated_date])
     }
 
-    client.release()
-
     return res.sendStatus(200)
   } catch (err) {
     logger.error(err)
     return res.sendStatus(500)
+  } finally {
+    client.release()
   }
 })
 
@@ -336,10 +367,10 @@ app.post('/forms/fsus', authenticateToken, async (req, res) => {
   const filename = `fsus-${user.uid}-${dayjs(timestamp).format('DD-MM-YYYY')}.csv`
 
   sendMail(`FSUS de ${user.uid}`, `Voir ${filename} en pièce-jointe.`, [
-      {
-        filename,
-        content: `uid;date;${Array.from({length: 10}, (_, i) => `q${i+1}`).join(";")}\n${user.uid};${dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')};${results.toString().split(",").join(";")}`,
-      },
+    {
+      filename,
+      content: `uid;date;${Array.from({length: 10}, (_, i) => `q${i+1}`).join(";")}\n${user.uid};${dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')};${results.toString().split(",").join(";")}`,
+    }
   ])
 
   logger.info({ message: "Form completed", results: results.toString() })
@@ -348,5 +379,5 @@ app.post('/forms/fsus', authenticateToken, async (req, res) => {
 })
 
 app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`)
+  logger.info(`Server running on port ${PORT} (${NODE_ENV})`)
 })

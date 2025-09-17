@@ -1,5 +1,7 @@
 import winston from "winston"
 
+const NODE_ENV = process.env.NODE_ENV || 'development'
+
 const levels = {
   error: 0,
   warn: 1,
@@ -26,7 +28,7 @@ const logger = winston.createLogger({
   levels,
   transports: [
     new winston.transports.Console({ level: "debug", format: consoleFormat }),
-    new winston.transports.File({ level: "http", format: fileFormat, filename: "./logs/activmotiv.log" })
+    ...(NODE_ENV == 'production' ? [new winston.transports.File({ level: "http", format: fileFormat, filename: "./logs/activmotiv.log" })] : [])
   ]
 })
 
