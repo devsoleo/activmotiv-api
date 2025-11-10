@@ -1,26 +1,24 @@
 import nodemailer from 'nodemailer'
 import logger from '../logger/index.js'
 
-const SMTP_TO = process.env.SMTP_TO
-const SMTP_HOST = process.env.SMTP_HOST
-const SMTP_USERNAME = process.env.SMTP_USERNAME
-const SMTP_PASSWORD = process.env.SMTP_PASSWORD
-const SMTP_SENDER = process.env.SMTP_SENDER
+const NODE_ENV = process.env.NODE_ENV || 'development'
 
 const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
+  host: process.env.SMTP_HOST,
   port: 587,
   secure: false,
   auth: {
-    user: SMTP_USERNAME,
-    pass: SMTP_PASSWORD,
-  },
+    user: process.env.SMTP_USERNAME,
+    pass: process.env.SMTP_PASSWORD,
+  }
 })
 
-const sendMail = async (subject, html, attachments) => {
+const sendMail = async (to, subject, html, attachments) => {
+  if (NODE_ENV != 'production') return
+
   await transporter.sendMail({
-    from: SMTP_SENDER,
-    to: SMTP_TO,
+    from: process.env.SMTP_SENDER,
+    to,
     subject,
     html,
     attachments

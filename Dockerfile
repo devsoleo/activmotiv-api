@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY . .
 
+RUN apk add --no-cache tzdata
 RUN apk add --no-cache openssl && npm install --quiet --production
 
 EXPOSE 3000 

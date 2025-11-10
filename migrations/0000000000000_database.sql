@@ -35,5 +35,13 @@ CREATE TABLE tracking_opening (
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
+CREATE TABLE questionnaires (
+    id SERIAL PRIMARY KEY NOT NULL,
+    user_id INTEGER NOT NULL,
+    label varchar(60) NOT NULL,
+    validation_date TIMESTAMP,
+    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- adminacc / adminacc
 INSERT INTO users (uid, password, admin) VALUES ('adminacc', '$2b$12$B3QAODM2r6RRFkTBf17Pv.rgXyvuehNI/6cKPYwPGoCP0eU1BcvpW', true);
