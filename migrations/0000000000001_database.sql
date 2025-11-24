@@ -1,0 +1,1 @@
+ALTER TABLE tracking_opening ALTER COLUMN measurement_date SET DEFAULT CURRENT_TIMESTAMP;

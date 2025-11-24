@@ -42,10 +42,8 @@ router.put('/opening', authenticateToken, async (req, res) => {
   const client = await pool.getClient()
 
   try {
-    for (const timestamp of measurements) {
-      const formated_date = dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')
-
-      await client.query('INSERT INTO tracking_opening (user_id, measurement_date) VALUES ($1, $2)', [user.id, formated_date])
+    for (const _ of measurements) {
+      await client.query('INSERT INTO tracking_opening (user_id) VALUES ($1)', [user.id])
     }
 
     return res.sendStatus(200)
