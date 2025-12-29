@@ -1,10 +1,11 @@
 import express from 'express'
 import jwt from 'jsonwebtoken'
+import bcrypt from 'bcrypt'
 
-import logger from '../logger/index.js'
-import pool from '../database/postgresql/index.js'
+import logger from '../../../logger/index.js'
+import pool from '../../../database/postgresql/index.js'
 
-import { authenticateToken } from "../auth/token.js"
+import { authenticateToken } from "../../../auth/token.js"
 
 const router = express.Router()
 

@@ -7,12 +7,15 @@ import logger from './logger/index.js'
 import pool from './database/postgresql/index.js'
 import packageJson from './package.json' with { type: 'json' }
 
-import adminRoutes from './routes/admin.js'
+import adminRoutes from './routes/admin/index.js'
 import authRoutes from './routes/auth.js'
 import trackingRoutes from './routes/tracking.js'
 import tasksRoutes from './routes/tasks.js'
 import questionnairesRoutes from './routes/questionnaires.js'
 import samRoutes from './routes/sam.js'
+import notificationsRoutes from './routes/notifications.js'
+
+import { runCron } from './notifications/index.js'
 
 dotenv.config()
 
@@ -21,6 +24,8 @@ const PORT = process.env.PORT || 3000
 const APP_VERSION = packageJson.version
 
 await pool.migrateDatabase()
+
+await runCron()
 
 const app = express()
 
@@ -56,12 +61,13 @@ app.get('/csrf-token', (req, res) => {
   res.json({ csrfToken: req.csrfToken() })
 })
 
-app.use('/admin', adminRoutes)
 app.use('/auth', authRoutes)
 app.use('/tracking', trackingRoutes)
 app.use('/tasks', tasksRoutes)
 app.use('/questionnaires', questionnairesRoutes)
 app.use('/sam', samRoutes)
+app.use('/notifications', notificationsRoutes)
+app.use('/admin', adminRoutes)
 
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT} (version=${APP_VERSION} | env=${NODE_ENV})`)

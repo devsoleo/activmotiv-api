@@ -3,6 +3,7 @@ CREATE TABLE users (
     uid varchar(8) NOT NULL UNIQUE,
     password varchar(60),
     admin BOOLEAN DEFAULT FALSE,
+    notification_token varchar(200) DEFAULT NULL,
     creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -20,11 +21,8 @@ CREATE TABLE images (
 CREATE TABLE notifications (
     id SERIAL PRIMARY KEY NOT NULL,
     user_id INTEGER NOT NULL,
-    title varchar(60) NOT NULL,
-    body varchar(100) NOT NULL,
-    action_type varchar(10) NOT NULL, -- ex: link
-    action_data varchar(10) NOT NULL, -- /path
-    action_text varchar(10) NOT NULL, -- /path
+    label varchar(10) NOT NULL,
+    publish_date TIMESTAMP,
     creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

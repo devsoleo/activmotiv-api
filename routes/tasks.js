@@ -27,8 +27,6 @@ router.get('/status', authenticateToken, async (req, res) => {
   } finally {
     client.release()
   }
-
-
 })
 
 export default router

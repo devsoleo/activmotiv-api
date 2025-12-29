@@ -28,6 +28,8 @@ const processQuestionnaire = async (client, user, label, headers, results, times
   const content_results = `${user.uid};${dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')};${results.toString().split(',').join(';')}`
 
   await client.query('INSERT INTO questionnaires (user_id, label, validation_date) VALUES ($1, $2, $3)', [user.id, label, dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')])
+  // TODO : UPDATE with QUESTIONNAIRE_INTERVAL
+  await client.query('INSERT INTO notifications (user_id, label, publish_date) VALUES ($1, $2, $3)', [user.id, label, dayjs(timestamp).add(7, 'day').format('YYYY-MM-DD HH:mm:ss')])
 
   sendMail(process.env.SMTP_TO, `Questionnaire ${label} de ${user.uid}`, `Voir ${filename} en pièce-jointe.`, [
     {
@@ -37,22 +39,20 @@ const processQuestionnaire = async (client, user, label, headers, results, times
   ])
 }
 
-router.put('/cache', authenticateToken, async (req, res) => {
+router.put('/queue', authenticateToken, async (req, res) => {
   const user = req.user
-  const cache = req.body.cache
+  const item = req.body.item
 
-  if (!cache || cache == {}) return res.sendStatus(400)
+  if (!item || item == {}) return res.sendStatus(400)
 
   const client = await pool.getClient()
 
   try {
-    for (const [label, value] of Object.entries(cache)) {
-      const { header, results, timestamp } = value[0]
+    const { label, headers, answers, timestamp } = item
 
-      await processQuestionnaire(client, user, label, header, results, timestamp)
+    await processQuestionnaire(client, user, label, headers, answers, timestamp)
 
-      logger.info({ message: "Questionnaire completed" })
-    }
+    logger.info({ message: "Questionnaire completed" })
 
     return res.sendStatus(200)
   } catch (err) {
