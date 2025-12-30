@@ -29,6 +29,9 @@ CREATE TABLE notifications (
 CREATE TABLE tracking_opening (
     id SERIAL PRIMARY KEY NOT NULL,
     user_id INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    image_top INTEGER NOT NULL,
+    image_bottom INTEGER NOT NULL,
     measurement_date TIMESTAMP,
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
