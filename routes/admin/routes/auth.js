@@ -5,32 +5,7 @@ import bcrypt from 'bcrypt'
 import logger from '../../../logger/index.js'
 import pool from '../../../database/postgresql/index.js'
 
-import { authenticateToken } from "../../../auth/token.js"
-
 const router = express.Router()
-
-router.post('/create-account', authenticateToken, async (req, res) => {
-  const user = req.user
-  const { account_uid, account_is_admin } = req.body
-
-  if (!user.admin) return res.sendStatus(403)
-  if (!account_uid || !account_is_admin) return res.sendStatus(400)
-
-  const client = await pool.getClient()
-
-  try {
-    await client.query('INSERT INTO users(uid, admin) VALUES($1, $2)', [account_uid, account_is_admin])
-
-    logger.info({ message: "User created", uid: account_uid })
-
-    return res.sendStatus(200)
-  } catch (err) {
-    logger.error(err)
-    return res.sendStatus(500)
-  } finally {
-    client.release()
-  }
-})
 
 router.post('/login', async (req, res) => {
   const { uid, password } = req.body

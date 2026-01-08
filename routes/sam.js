@@ -3,7 +3,7 @@ import express from 'express'
 import logger from '../logger/index.js'
 import pool from '../database/postgresql/index.js'
 
-import { authenticateToken } from "../auth/token.js"
+import { authenticateToken } from "../middlewares/auth.js"
 
 const router = express.Router()
 

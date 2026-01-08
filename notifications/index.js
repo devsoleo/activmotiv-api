@@ -38,7 +38,7 @@ export const runCron = async () => {
         getMessaging().send(message)
           .then(async (response) => {
             console.log('Successfully sent message:', response)
-            await client.query("DELETE FROM notifications WHERE id = $1", [i.id])
+            // await client.query("DELETE FROM notifications WHERE id = $1", [i.id])
           })
           .catch((error) => {
             console.log('Error sending message:', error)
@@ -54,6 +54,6 @@ export const runCron = async () => {
 
   await lookForNotifications()
 
-  cron.schedule('* * * * *', lookForNotifications)
+  cron.schedule('0 0 * * *', lookForNotifications)
 }
 
