@@ -9,6 +9,11 @@ import { authenticateToken } from "../middlewares/auth.js"
 
 const router = express.Router()
 
+const notifications_content = {
+  fsus: { title: 'F-SUS', message: 'Veuillez remplir votre F-SUS.' },
+  generic: { title: 'Generique', message: 'Veuillez remplir votre generic.' }
+}
+
 const processQuestionnaire = async (client, user, label, headers, results, timestamp) => {
   const filename = `${label}-${user.uid}-${dayjs(timestamp).format('DD-MM-YYYY')}.csv`
 
@@ -28,8 +33,7 @@ const processQuestionnaire = async (client, user, label, headers, results, times
   const content_results = `${user.uid};${dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')};${results.toString().split(',').join(';')}`
 
   await client.query('INSERT INTO questionnaires (user_id, label, validation_date) VALUES ($1, $2, $3)', [user.id, label, dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')])
-  // TODO : UPDATE with QUESTIONNAIRE_INTERVAL
-  await client.query('INSERT INTO notifications (user_id, label, publish_date) VALUES ($1, $2, $3)', [user.id, label, dayjs(timestamp).add(7, 'day').format('YYYY-MM-DD HH:mm:ss')])
+  await client.query('INSERT INTO notifications (user_id, title, message, status, publish_date) VALUES ($1, $2, $3, $4, $5)', [user.id, notifications_content[label]["title"], notifications_content[label]["message"], 'pending', dayjs(timestamp).add(7, 'day').format('YYYY-MM-DD HH:mm:ss')])
 
   sendMail(process.env.SMTP_TO, `Questionnaire ${label} de ${user.uid}`, `Voir ${filename} en pièce-jointe.`, [
     {

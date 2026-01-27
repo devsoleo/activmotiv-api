@@ -13,8 +13,6 @@ export const authenticateToken = (req, res, next) => {
 
   if (token == null) return res.sendStatus(401)
 
-  logger.info(`jwt_payload : ${JSON.stringify(jwt.decode(token))}`)
-
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) {
       logger.error(err)
