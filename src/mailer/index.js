@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer'
-import logger from '../logger/index.js'
+
+import logger from '@/logger/index.js'
 
 const NODE_ENV = process.env.NODE_ENV || 'development'
 

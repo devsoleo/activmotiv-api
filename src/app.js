@@ -3,23 +3,24 @@ import dotenv from 'dotenv'
 import helmet from 'helmet'
 import cors from 'cors'
 
-import logger from './logger/index.js'
-import pool from './database/postgresql/index.js'
-import packageJson from './package.json' with { type: 'json' }
+import logger from '@/logger/index.js'
+import pool from '@/database/postgresql/index.js'
 
-import adminRoutes from './routes/admin/index.js'
-import authRoutes from './routes/auth.js'
-import trackingRoutes from './routes/tracking.js'
-import tasksRoutes from './routes/tasks.js'
-import questionnairesRoutes from './routes/questionnaires.js'
-import samRoutes from './routes/sam.js'
-import notificationsRoutes from './routes/notifications.js'
-
-import { runCron } from './notifications/index.js'
+import adminRoutes from '@/routes/admin/index.js'
+import authRoutes from '@/routes/auth.js'
+import analyticsRoutes from '@/routes/analytics.js'
+import telemetryRoutes from '@/routes/telemetry.js'
+import tasksRoutes from '@/routes/tasks.js'
+import questionnairesRoutes from '@/routes/questionnaires.js'
+import samRoutes from '@/routes/sam.js'
+import notificationsRoutes from '@/routes/notifications.js'
+import packageJson from '../package.json' with { type: 'json' }
+import { runCron } from '@/crons/notifications.js'
 
 dotenv.config()
 
 const NODE_ENV = process.env.NODE_ENV || 'development'
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*'
 const PORT = process.env.PORT || 3000
 const APP_VERSION = packageJson.version
 
@@ -33,9 +34,7 @@ app.use(express.json())
 app.use(helmet())
 app.disable('x-powered-by')
 
-app.use(cors({
-  origin: NODE_ENV == 'production' ? 'https://admin.activmotiv.fr' : '*'
-}))
+app.use(cors({ origin: CORS_ORIGIN }))
 
 const isVersionSupported = (clientVersion, serverVersion) => {
   const clientParts = clientVersion.split('.').map(Number)
@@ -62,7 +61,8 @@ app.get('/csrf-token', (req, res) => {
 })
 
 app.use('/auth', authRoutes)
-app.use('/tracking', trackingRoutes)
+app.use('/analytics', analyticsRoutes)
+app.use('/telemetry', telemetryRoutes)
 app.use('/tasks', tasksRoutes)
 app.use('/questionnaires', questionnairesRoutes)
 app.use('/sam', samRoutes)

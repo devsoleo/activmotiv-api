@@ -2,10 +2,10 @@ import express from 'express'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 
-import logger from '../logger/index.js'
-import pool from '../database/postgresql/index.js'
+import logger from '@/logger/index.js'
+import pool from '@/database/postgresql/index.js'
 
-import { authenticateToken } from "../middlewares/auth.js"
+import { authenticateToken } from '@/middlewares/auth.js'
 
 const router = express.Router()
 
@@ -17,7 +17,7 @@ router.post('/first-login', async (req, res) => {
   const client = await pool.getClient()
 
   try {
-    const q1 = await client.query('UPDATE users SET password = $1 WHERE uid = $2 AND password IS NULL', [bcrypt.hashSync(password, 12), uid])
+    const q1 = await client.query(`UPDATE users SET password = $1 WHERE uid = $2 AND password IS NULL`, [bcrypt.hashSync(password, 12), uid])
 
     if (q1.rowCount == 0) {
       logger.warn({ message: 'Password hasn\'t been created', uid })
@@ -29,7 +29,7 @@ router.post('/first-login', async (req, res) => {
 
     return res.sendStatus(200)
   } catch (err) {
-    logger.error(err)
+    logger.error("Error :", err)
     return res.sendStatus(500)
   } finally {
     client.release()
@@ -45,7 +45,7 @@ router.post('/reset-password', authenticateToken, async (req, res) => {
   const client = await pool.getClient()
 
   try {
-    const q1 = await client.query('SELECT password FROM users WHERE uid = $1', [user.uid])
+    const q1 = await client.query(`SELECT password FROM users WHERE uid = $1`, [user.uid])
     const u = q1.rows[0]
 
     const validPassword = await bcrypt.compare(current_password, u.password)
@@ -56,13 +56,13 @@ router.post('/reset-password', authenticateToken, async (req, res) => {
       return res.sendStatus(401)
     }
 
-    await client.query('UPDATE users SET password = $1 WHERE uid = $2', [bcrypt.hashSync(new_password, 12), user.uid])
+    await client.query(`UPDATE users SET password = $1 WHERE uid = $2`, [bcrypt.hashSync(new_password, 12), user.uid])
 
     logger.info({ message: 'Password reset', uid: user.uid })
 
     return res.sendStatus(200)
   } catch (err) {
-    logger.error(err)
+    logger.error("Error :", err)
     return res.sendStatus(500)
   } finally {
     client.release()
@@ -99,19 +99,22 @@ router.post('/login', async (req, res) => {
       return res.sendStatus(401)
     }
 
+    const q2 = await client.query('SELECT * FROM devices WHERE user_id = $1 AND is_active = true', [u.id])
+
     const payload = {
       id: u.id,
       uid: u.uid,
+      deviceId: q2.rows[0].id,
       admin: u.admin
     }
 
-    const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRES_IN })
+    const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1y' })
 
     logger.info({ message: "Login successful", uid: u.uid })
 
     return res.status(200).json({ accessToken })
   } catch (err) {
-    logger.error(err)
+    logger.error("Error :", err)
     return res.sendStatus(500)
   } finally {
     client.release()

@@ -1,4 +1,4 @@
-import winston from "winston"
+import winston from 'winston'
 
 const NODE_ENV = process.env.NODE_ENV || 'development'
 
@@ -12,9 +12,9 @@ const levels = {
 
 const consoleFormat = winston.format.combine(
   winston.format.colorize(),
-  winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.printf(({ timestamp, level, message, ...meta }) => {
-    const metaString = Object.keys(meta).length ? JSON.stringify(meta) : ""
+    const metaString = Object.keys(meta).length ? JSON.stringify(meta) : ''
     return `[${timestamp}] ${level}: ${message} ${metaString}`
   })
 )
@@ -27,8 +27,8 @@ const fileFormat = winston.format.combine(
 const logger = winston.createLogger({
   levels,
   transports: [
-    new winston.transports.Console({ level: "debug", format: consoleFormat }),
-    ...(NODE_ENV == 'production' ? [new winston.transports.File({ level: "http", format: fileFormat, filename: "./logs/activmotiv.log" })] : [])
+    new winston.transports.Console({ level: 'debug', format: consoleFormat }),
+    ...(NODE_ENV == 'production' ? [new winston.transports.File({ level: 'http', format: fileFormat, filename: './logs/activmotiv.log' })] : [])
   ]
 })
 

@@ -2,6 +2,8 @@ import pg from 'pg'
 import runMigrations from 'node-pg-migrate'
 import dotenv from 'dotenv'
 
+import logger from '@/logger/index.js'
+
 dotenv.config()
 
 const options = {
@@ -16,9 +18,9 @@ const { Pool } = pg
 const pool = new Pool(options)
 
 pool.connect().then(() => {
-  console.log('[db-postgres] Successfully connected to PostgreSQL database')
+  logger.info("Successfully connected to PostgreSQL database !")
 }).catch(err => {
-  console.error('[db-postgres]', err)
+  logger.error("Error :", err)
   process.exit(-1)
 })
 
@@ -29,7 +31,7 @@ const migrateDatabase = async () => {
     direction: 'up',
     verbose: false,
   }).catch(err => {
-    console.error('[db-postgres] Error migrating database:', err)
+    logger.error("Error migrating database :", err)
     process.exit(-1)
   })
 }

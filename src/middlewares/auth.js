@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken'
 
-import logger from '../logger/index.js'
+import logger from '@/logger/index.js'
 
 export const isAdmin = (req, res, next) => {
   if (!req.user.admin) return res.sendStatus(403)
@@ -15,7 +15,7 @@ export const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) {
-      logger.error(err)
+      logger.error("Error :", err)
       return res.sendStatus(403)
     }
 
