@@ -14,9 +14,11 @@ export const runCron = async () => {
     try {
       const q1 = await client.query(`SELECT * FROM notifications WHERE scheduled_at <= NOW() AND status = 'pending'`)
 
-      q1.rows.forEach(async (i) => {
+      for (const i of q1.rows) {
         const { id, device_id, template } = i
-        const q2 = await client.query(`SELECT fcm_token FROM devices WHERE id = $1`, [device_id])
+        const { title, body } = template ?? {}
+
+        const q2 = await client.query(`SELECT fcm_token FROM notifications_token WHERE device_id = $1`, [device_id])
 
         const { fcm_token } = q2.rows[0]
 
@@ -29,18 +31,27 @@ export const runCron = async () => {
           token: fcm_token
         }
 
-        getMessaging().send(message)
-          .then(async (response) => {
-            console.log('Successfully sent message:', response)
-            await client.query(`UPDATE notifications SET status = 'sent' WHERE id = $1`, [id])
-          })
-          .catch((error) => {
-            console.log('Error sending message:', error)
-          })
-      })
+        try {
+          const response = await getMessaging().send(message)
 
+          logger.info(`Notification ${id} envoyée :`, response)
+          await client.query(`UPDATE notifications SET status = 'sent' WHERE id = $1`, [id])
+        } catch (error) {
+          if (
+            error.code === 'messaging/registration-token-not-registered' ||
+            error.code === 'messaging/invalid-registration-token'
+          ) {
+            await client.query(`UPDATE notifications_token SET fcm_token = NULL WHERE device_id = $1`, [device_id])
+            await client.query(`UPDATE notifications SET status = 'failed' WHERE id = $1`, [id])
+
+            logger.warn(`Token invalide supprimé pour device ${device_id}`)
+          } else {
+            logger.error(`Erreur :`, error)
+          }
+        }
+      }
     } catch (err) {
-      logger.error("Error :", err)
+      logger.error('Error :', err)
     } finally {
       client.release()
     }
@@ -50,4 +61,3 @@ export const runCron = async () => {
 
   cron.schedule('* * * * *', lookForNotifications)
 }
-
