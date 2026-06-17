@@ -99,12 +99,9 @@ router.post('/login', async (req, res) => {
       return res.sendStatus(401)
     }
 
-    const q2 = await client.query('SELECT * FROM devices WHERE user_id = $1 AND is_active = true', [u.id])
-
     const payload = {
       id: u.id,
       uid: u.uid,
-      deviceId: q2.rows[0].id,
       admin: u.admin
     }
 
