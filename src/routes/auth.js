@@ -118,4 +118,22 @@ router.post('/login', async (req, res) => {
   }
 })
 
+router.get('/onboarding-status', authenticateToken, async (req, res) => {
+  const user = req.user
+  const client = await pool.getClient()
+
+  try {
+    const q1 = await client.query('SELECT COUNT(*) FROM sam WHERE user_id = $1', [user.id])
+    const count = Number.parseInt(q1.rows[0].count, 20)
+
+    // If count > 0, they have already rated their images (onboarded)
+    return res.status(200).json({ onboarded: count > 0 })
+  } catch (err) {
+    logger.error("Error :", err)
+    return res.sendStatus(500)
+  } finally {
+    client.release()
+  }
+})
+
 export default router

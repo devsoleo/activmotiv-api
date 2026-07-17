@@ -14,19 +14,44 @@ router.get('/popup', authenticateToken, async (req, res) => {
   const client = await pool.getClient()
 
   try {
-    const q1 = await client.query(`SELECT id FROM popups WHERE user_id = $1`, [user.id])
+    // 1. Get total count and total duration of popups
+    const qStats = await client.query(
+      `SELECT COALESCE(COUNT(*), 0) AS amount, COALESCE(SUM(duration), 0) AS total_duration FROM popups WHERE user_id = $1`,
+      [user.id]
+    )
+    const amount = parseInt(qStats.rows[0].amount, 10)
+    const total_duration = parseInt(qStats.rows[0].total_duration, 10)
+
+    // 2. Get daily opening count for the current week (Monday to Sunday)
+    const qWeekly = await client.query(
+      `SELECT 
+        EXTRACT(ISODOW FROM measured_at) AS dow,
+        COUNT(*) AS count
+       FROM popups 
+       WHERE user_id = $1 
+         AND measured_at >= date_trunc('week', current_date)
+       GROUP BY dow`,
+      [user.id]
+    )
+
+    const labels = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+    const opening = labels.map((label, index) => ({
+      label,
+      value: 0
+    }))
+
+    for (const row of qWeekly.rows) {
+      const dow = parseInt(row.dow, 10) // 1 = Monday, 7 = Sunday
+      const index = dow - 1
+      if (index >= 0 && index < 7) {
+        opening[index].value = parseInt(row.count, 10)
+      }
+    }
 
     return res.status(200).json({
-      amount: q1.rowCount,
-      opening: [
-        {label: 'L', value: 100},
-        {label: 'M', value: 50},
-        {label: 'M', value: 74},
-        {label: 'J', value: 32},
-        {label: 'V', value: 60},
-        {label: 'S', value: 25},
-        {label: 'D', value: 100}
-      ]
+      amount,
+      duration: total_duration,
+      opening
     })
   } catch (err) {
     logger.error("Error :", err)
