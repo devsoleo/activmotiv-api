@@ -10,25 +10,27 @@ import { questionnaireSchema } from '@/validators/questionnaire.schema.js'
 
 const router = express.Router()
 
-const processQuestionnaire = async (client, user, label, headers, results, timestamp) => {
+const processQuestionnaire = async (client, user, label, results, timestamp) => {
   const filename = `${label}-${user.uid}-${dayjs(timestamp).format('DD-MM-YYYY')}.csv`
 
-  if (label == 'generic') {
-    headers.splice(headers.indexOf('a1') + 1, 0, 'a1_utile')
-    headers.splice(headers.indexOf('a1') + 1, 0, 'a1_benefique')
-    headers.splice(headers.indexOf('a1') + 1, 0, 'a1_sage')
-    headers.splice(headers.indexOf('a2') + 1, 0, 'a2_agreable')
-    headers.splice(headers.indexOf('a2') + 1, 0, 'a2_amusant')
-    headers.splice(headers.indexOf('a2') + 1, 0, 'a2_plaisant')
+  const headers = results.map(r => r.question)
+  const answers = results.map(r => Array.isArray(r.answer) ? r.answer.join(',') : r.answer)
 
-    headers = headers.filter(i => i !== 'a1' && i !== 'a2')
+  const content_header = `uid;date;${headers.join(';')}`
+  const content_results = `${user.uid};${dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')};${answers.join(';')}`
+
+  const questionnaireData = {
+    results,
+    timestamp
   }
 
-  const content_header = `uid;date;${headers.toString().split(',').join(';')}`
-  const content_results = `${user.uid};${dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')};${results.toString().split(',').join(';')}`
+  await client.query(`INSERT INTO questionnaires (user_id, label, data, completed_at) VALUES ($1, $2, $3, $4)`, [
+    user.id,
+    label,
+    JSON.stringify(questionnaireData),
+    dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')
+  ])
 
-  await client.query(`INSERT INTO questionnaires (user_id, label, completed_at) VALUES ($1, $2, $3)`, [user.id, label, dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')])
-  
   await client.query(`
     INSERT INTO notifications (device_id, template, scheduled_at)
     SELECT id, $1, $2
@@ -49,6 +51,19 @@ const processQuestionnaire = async (client, user, label, headers, results, times
   ])
 }
 
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, user_id, label, data, completed_at FROM questionnaires WHERE user_id = $1 ORDER BY completed_at DESC`,
+      [req.user.id]
+    )
+    return res.json({ questionnaires: rows })
+  } catch (err) {
+    logger.error("Error fetching questionnaires:", err)
+    return res.sendStatus(500)
+  }
+})
+
 router.post('/:label', authenticateToken, async (req, res) => {
   const { label } = req.params
 
@@ -61,7 +76,7 @@ router.post('/:label', authenticateToken, async (req, res) => {
   const client = await pool.getClient()
 
   try {
-    await processQuestionnaire(client, req.user, label, data.headers, data.results, data.timestamp)
+    await processQuestionnaire(client, req.user, label, data.results, data.timestamp)
 
     logger.info({ message: "Questionnaire completed" })
 

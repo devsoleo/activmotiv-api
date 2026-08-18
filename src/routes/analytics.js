@@ -30,6 +30,7 @@ router.get('/popup', authenticateToken, async (req, res) => {
        FROM popups 
        WHERE user_id = $1 
          AND measured_at >= date_trunc('week', current_date)
+         AND measured_at < date_trunc('week', current_date) + INTERVAL '1 week'
        GROUP BY dow`,
       [user.id]
     )

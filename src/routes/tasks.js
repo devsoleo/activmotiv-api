@@ -17,10 +17,9 @@ router.get('/status', authenticateToken, async (req, res) => {
 
     const questionnaires = q1.rows
 
-    const open_fsus = questionnaires.filter(i => i.label == 'fsus').length <= 0
-    const open_generic = questionnaires.filter(i => i.label == 'generic').length <= 0
+    const daily = questionnaires.filter(i => i.label == 'daily').length <= 0
 
-    return res.status(200).json({ status: { 't1': open_fsus, 't2': open_generic, 't3': true } })
+    return res.status(200).json({ status: { daily } })
   } catch (err) {
     logger.error("Error :", err)
     return res.sendStatus(500)

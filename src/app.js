@@ -14,6 +14,7 @@ import tasksRoutes from '@/routes/tasks.js'
 import questionnairesRoutes from '@/routes/questionnaires.js'
 import samRoutes from '@/routes/sam.js'
 import notificationsRoutes from '@/routes/notifications.js'
+import popupsRoutes from '@/routes/popups.js'
 import packageJson from '../package.json' with { type: 'json' }
 import { runCron } from '@/crons/notifications.js'
 
@@ -67,6 +68,7 @@ app.use('/tasks', tasksRoutes)
 app.use('/questionnaires', questionnairesRoutes)
 app.use('/sam', samRoutes)
 app.use('/notifications', notificationsRoutes)
+app.use('/popups', popupsRoutes)
 app.use('/admin', adminRoutes)
 
 app.listen(PORT, () => {

@@ -1,8 +1,12 @@
 import { z } from 'zod'
 
+export const questionnaireResultItemSchema = z.object({
+    question: z.string(),
+    answer: z.any()
+})
+
 export const questionnaireSchema = z.object({
-    headers: z.array(z.string().min(2).max(3)),
-    results: z.array(z.array(z.any())),
+    results: z.array(questionnaireResultItemSchema),
     timestamp: z.number()
 })
 

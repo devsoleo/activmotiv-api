@@ -15,12 +15,38 @@ router.post('/create', async (req, res) => {
   const client = await pool.getClient()
 
   try {
-    await client.query('INSERT INTO users(uid, admin) VALUES($1, $2)', [account_uid, account_is_admin])
+    await client.query('BEGIN')
 
-    logger.info({ message: "User created", uid: account_uid })
+    const countRes = await client.query('SELECT COUNT(*) FROM users')
+    const totalUsers = parseInt(countRes.rows[0].count, 10)
+
+    const usedInBlockCount = totalUsers % 3
+    let availableTeams = [1, 2, 3]
+
+    if (usedInBlockCount > 0) {
+      const recentRes = await client.query(
+        'SELECT team FROM users ORDER BY id DESC LIMIT $1',
+        [usedInBlockCount]
+      )
+      const usedTeams = recentRes.rows.map(row => row.team)
+      availableTeams = availableTeams.filter(t => !usedTeams.includes(t))
+    }
+
+    const randomIndex = Math.floor(Math.random() * availableTeams.length)
+    const assignedTeam = availableTeams[randomIndex]
+
+    await client.query(
+      'INSERT INTO users (uid, admin, team) VALUES ($1, $2, $3)',
+      [account_uid, account_is_admin, assignedTeam]
+    )
+
+    await client.query('COMMIT')
+
+    logger.info({ message: "User created", uid: account_uid, team: assignedTeam })
 
     return res.sendStatus(200)
   } catch (err) {
+    await client.query('ROLLBACK')
     logger.error("Error :", err)
     return res.sendStatus(500)
   } finally {
