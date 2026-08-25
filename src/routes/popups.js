@@ -7,44 +7,26 @@ import { authenticateToken } from '@/middlewares/auth.js'
 
 const router = express.Router()
 
-const getPopupStatus = async (req, res) => {
+router.get('/status', authenticateToken, async (req, res) => {
   const client = await pool.getClient()
 
   try {
     const result = await client.query('SELECT team, created_at FROM users WHERE id = $1', [req.user.id])
     const u = result.rows[0]
 
-    if (!u || !u.created_at) {
-      return res.status(200).json({ popups: false })
-    }
+    const isSameDay = dayjs().tz().isSame(dayjs(u.created_at).tz(), 'day')
+    if (isSameDay) return res.status(200).json({ popups: true })
 
-    // Always allow popups if the account creation was today (same day)
-    const isSameDay = dayjs().isSame(dayjs(u.created_at), 'day')
-    if (isSameDay) {
-      return res.status(200).json({ popups: true })
-    }
+    if (u.team == null)  return res.status(200).json({ popups: false })
 
-    if (u.team == null) {
-      return res.status(200).json({ popups: false })
-    }
+    const team = Number.parseInt(u.team)
+    let requiredDays = team * 7 + 1
 
-    const team = parseInt(u.team, 10)
-    let requiredDays = null
+    const startDate = dayjs(u.created_at).tz().add(requiredDays, 'day')
+    const endDate = startDate.add(5 * 7, 'day')
 
-    if (team === 1) {
-      requiredDays = 7 + 1
-    } else if (team === 2) {
-      requiredDays = 14 + 1
-    } else if (team === 3) {
-      requiredDays = 21 + 1
-    }
-
-    if (requiredDays === null) {
-      return res.status(200).json({ popups: false })
-    }
-
-    const targetDate = dayjs(u.created_at).add(requiredDays, 'day')
-    const popups = Date.now() >= targetDate.valueOf()
+    const now = Date.now()
+    const popups = now >= startDate.valueOf() && now < endDate.valueOf()
 
     return res.status(200).json({ popups })
   } catch (err) {
@@ -53,9 +35,6 @@ const getPopupStatus = async (req, res) => {
   } finally {
     client.release()
   }
-}
-
-router.get('/', authenticateToken, getPopupStatus)
-router.get('/status', authenticateToken, getPopupStatus)
+})
 
 export default router

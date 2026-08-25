@@ -1,5 +1,4 @@
 import express from 'express'
-import dayjs from 'dayjs'
 
 import logger from '@/logger/index.js'
 import pool from '@/database/postgresql/index.js'

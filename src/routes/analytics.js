@@ -25,12 +25,12 @@ router.get('/popup', authenticateToken, async (req, res) => {
     // 2. Get daily opening count for the current week (Monday to Sunday)
     const qWeekly = await client.query(
       `SELECT 
-        EXTRACT(ISODOW FROM measured_at) AS dow,
+        EXTRACT(ISODOW FROM measured_at AT TIME ZONE 'Europe/Paris') AS dow,
         COUNT(*) AS count
        FROM popups 
        WHERE user_id = $1 
-         AND measured_at >= date_trunc('week', current_date)
-         AND measured_at < date_trunc('week', current_date) + INTERVAL '1 week'
+         AND measured_at >= date_trunc('week', (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris'))
+         AND measured_at < date_trunc('week', (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')) + INTERVAL '1 week'
        GROUP BY dow`,
       [user.id]
     )
@@ -71,7 +71,7 @@ router.put('/popup', authenticateToken, async (req, res) => {
   const client = await pool.getClient()
 
   try {
-    await client.query(`INSERT INTO popups (user_id, duration, image_top, image_bottom, measured_at) VALUES ($1, $2,  $3, $4, $5)`, [user.id, duration, images.top, images.bottom, dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')])
+    await client.query(`INSERT INTO popups (user_id, duration, image_top, image_bottom, measured_at) VALUES ($1, $2,  $3, $4, $5)`, [user.id, duration, images.top, images.bottom, dayjs(timestamp).toISOString()])
 
     return res.sendStatus(200)
   } catch (err) {

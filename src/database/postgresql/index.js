@@ -12,17 +12,19 @@ const options = {
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   database: process.env.DB_NAME,
+  options: '-c timezone=Europe/Paris',
 }
 
 const { Pool } = pg
 const pool = new Pool(options)
 
-pool.connect().then(() => {
+try {
+  await pool.connect()
   logger.info("Successfully connected to PostgreSQL database !")
-}).catch(err => {
+} catch (err) {
   logger.error("Error :", err)
   process.exit(-1)
-})
+}
 
 const migrateDatabase = async () => {
   await runMigrations({
@@ -37,7 +39,7 @@ const migrateDatabase = async () => {
 }
 
 const query = async (text, params, callback) => {
-  return await pool.query(text, params, callback)
+  return pool.query(text, params, callback)
 }
 
 const getClient = () => pool.connect()

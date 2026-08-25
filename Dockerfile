@@ -23,6 +23,8 @@ RUN npm install --quiet --omit=dev
 COPY --from=builder /app/dist ./dist
 
 ENV NODE_ENV=production
+ENV TZ=Europe/Paris
+ENV PGTZ=Europe/Paris
 EXPOSE 3000
 
 CMD ["npm", "start"]
