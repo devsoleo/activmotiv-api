@@ -1,4 +1,16 @@
-export type NotificationTemplateKey =  'QUESTIONNAIRE' | 'SENSOR'
+export type NotificationTemplateKey = 'QUESTIONNAIRE' | 'SENSOR'
+
+export const SENSOR_NOTIFICATION_BODIES = [
+  "Bonjour, pensez à mettre le capteur à la taille aujourd'hui. Retirer le seulment pour la douche ou les activités à risque. Merci !",
+  "Bonjour, votre capteur est-il bien en place ? Portez-le en continu, sauf pour la douche et les activités pouvant l'endommager. Merci !",
+  "Bonjour, avez-vous toujours votre capteur à la taille ? Enlevez le seulement pour la douche ou les activités à risque. Merci !",
+  "Petit check : portez-vous bien le capteur à la taille ? Retirer le seulement pour la douche ou en cas d'activité à risque. Merci !"
+]
+
+export function getRandomSensorBody(): string {
+  const randomIndex = Math.floor(Math.random() * SENSOR_NOTIFICATION_BODIES.length)
+  return SENSOR_NOTIFICATION_BODIES[randomIndex]
+}
 
 export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateKey, { title: string, body: string, sound?: string, channelId?: string, color?: string, imageUrl?: string }> = {
   QUESTIONNAIRE: {
@@ -10,7 +22,9 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateKey, { title: st
   },
   SENSOR: {
     title: "Rappel port du capteur",
-    body: "N'oubliez pas votre capteur ce matin !",
+    get body() {
+      return getRandomSensorBody()
+    },
     channelId: "sensor",
     color: '#EF5350',
     imageUrl: 'https://activmotiv.fr/static/notifications/sensor.png?key=b4b01d6c7472362a30ac5470aac7f6be'

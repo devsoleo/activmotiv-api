@@ -44,6 +44,51 @@ router.get('/image/:imageId', authenticateToken, async (req, res) => {
   }
 })
 
+router.put('/batch', authenticateToken, async (req, res) => {
+  const user = req.user
+  const { items } = req.body
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'items array is required' })
+  }
+
+  const client = await pool.getClient()
+
+  try {
+    await client.query('BEGIN')
+
+    for (const item of items) {
+      const imageId = item.image
+      const valence = item.valence ?? null
+      const arousal = item.arousal ?? null
+      const hidden = item.hidden ?? false
+
+      if (imageId === undefined || imageId === null) continue
+
+      await client.query(
+        `INSERT INTO sam (user_id, image, valence, arousal, hidden, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         ON CONFLICT (user_id, image)
+         DO UPDATE SET
+           valence = EXCLUDED.valence,
+           arousal = EXCLUDED.arousal,
+           hidden = EXCLUDED.hidden,
+           updated_at = NOW()`,
+        [user.id, imageId, valence, arousal, hidden]
+      )
+    }
+
+    await client.query('COMMIT')
+    return res.sendStatus(200)
+  } catch (err) {
+    await client.query('ROLLBACK')
+    logger.error("Error batch updating SAM:", err)
+    return res.sendStatus(500)
+  } finally {
+    client.release()
+  }
+})
+
 router.put('/image/:imageId', authenticateToken, async (req, res) => {
   const user = req.user
   const { imageId } = req.params
