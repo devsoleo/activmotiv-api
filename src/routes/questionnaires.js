@@ -7,6 +7,7 @@ import { sendMail } from '@/mailer/index.js'
 
 import { authenticateToken } from '@/middlewares/auth.js'
 import { questionnaireSchema } from '@/validators/questionnaire.schema.js'
+import { isUserInActivePhase } from '@/utils/phases.js'
 
 const router = express.Router()
 
@@ -64,24 +65,6 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 })
 
-const PHASES_BY_TEAM = {
-  1: [
-    { startDays: 1, endDays: 1 + 7 },            // Phase 1: 1 -> 8
-    { startDays: 1 + 14, endDays: 1 + 21 },      // Phase 2: 15 -> 22
-    { startDays: 1 + 28, endDays: 1 + 35 }       // Phase 3: 29 -> 36
-  ],
-  2: [
-    { startDays: 1 + 7, endDays: 1 + 14 },       // Phase 1: 8 -> 15
-    { startDays: 1 + 21, endDays: 1 + 28 },      // Phase 2: 22 -> 29
-    { startDays: 1 + 35, endDays: 1 + 42 }       // Phase 3: 36 -> 43
-  ],
-  3: [
-    { startDays: 1 + 7, endDays: 1 + 14 },       // Phase 1: 8 -> 15
-    { startDays: 1 + 28, endDays: 1 + 35 },      // Phase 2: 29 -> 36
-    { startDays: 1 + 42, endDays: 1 + 49 }       // Phase 3: 43 -> 50
-  ]
-}
-
 router.get('/status', authenticateToken, async (req, res) => {
   if (dayjs().tz().hour() >= 13) {
     return res.status(200).json({ display: false })
@@ -102,29 +85,7 @@ router.get('/status', authenticateToken, async (req, res) => {
     const result = await client.query('SELECT team, created_at FROM users WHERE id = $1', [req.user.id])
     const u = result.rows[0]
 
-    if (!u || !u.created_at || u.team == null) {
-      return res.status(200).json({ display: false })
-    }
-
-    const team = parseInt(u.team, 10)
-    const teamPhases = PHASES_BY_TEAM[team]
-
-    if (!teamPhases) {
-      return res.status(200).json({ display: false })
-    }
-
-    const now = Date.now()
-    let display = false
-
-    for (const phase of teamPhases) {
-      const debut = dayjs(u.created_at).tz().add(phase.startDays, 'day')
-      const fin = dayjs(u.created_at).tz().add(phase.endDays, 'day')
-
-      if (now >= debut.valueOf() && now <= fin.valueOf()) {
-        display = true
-        break
-      }
-    }
+    const display = isUserInActivePhase(u)
 
     return res.status(200).json({ display })
   } catch (err) {

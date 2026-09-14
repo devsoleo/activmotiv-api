@@ -1,7 +1,7 @@
 export type NotificationTemplateKey = 'QUESTIONNAIRE' | 'SENSOR'
 
 export const SENSOR_NOTIFICATION_BODIES = [
-  "Bonjour, pensez à mettre le capteur à la taille aujourd'hui. Retirer le seulment pour la douche ou les activités à risque. Merci !",
+  "Bonjour, pensez à mettre le capteur à la taille aujourd'hui. Retirer le seulement pour la douche ou les activités à risque. Merci !",
   "Bonjour, votre capteur est-il bien en place ? Portez-le en continu, sauf pour la douche et les activités pouvant l'endommager. Merci !",
   "Bonjour, avez-vous toujours votre capteur à la taille ? Enlevez le seulement pour la douche ou les activités à risque. Merci !",
   "Petit check : portez-vous bien le capteur à la taille ? Retirer le seulement pour la douche ou en cas d'activité à risque. Merci !"

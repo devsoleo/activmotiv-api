@@ -1,15 +1,15 @@
+import dayjs from 'dayjs'
 import { getMessaging } from 'firebase-admin/messaging'
 import logger from '@/logger/index.js'
 import pool from '@/database/postgresql/index.js'
 import { NOTIFICATION_TEMPLATES } from '@/constants/notifications.js'
+import { isUserInActivePhase } from '@/utils/phases.js'
 
 export const handleNotifications = async () => {
-  const now = new Date()
-  const hours = String(now.getHours()).padStart(2, '0')
-  const minutes = String(now.getMinutes()).padStart(2, '0')
-  const currentTime = `${hours}:${minutes}:00`
+  const now = dayjs().tz()
+  const currentTime = now.format('HH:mm:00')
   const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
-  const currentDay = days[now.getDay()]
+  const currentDay = days[now.day()]
 
   const client = await pool.getClient()
 
@@ -18,9 +18,12 @@ export const handleNotifications = async () => {
       `SELECT 
         r.user_id, 
         r.label, 
+        u.team,
+        u.created_at,
         nt.device_id, 
         nt.fcm_token 
        FROM reminders r
+       JOIN users u ON u.id = r.user_id
        JOIN devices d ON d.user_id = r.user_id AND d.is_active = true
        JOIN notifications_token nt ON nt.device_id = d.id
        WHERE r.day_of_week = $1 
@@ -31,10 +34,18 @@ export const handleNotifications = async () => {
     )
 
     for (const reminder of rows) {
+      if (reminder.label === 'QUESTIONNAIRE' && !isUserInActivePhase({ team: reminder.team, created_at: reminder.created_at })) {
+        continue
+      }
+
       const template = NOTIFICATION_TEMPLATES[reminder.label]
       if (!template) continue
 
       const message = {
+        data: {
+          type: reminder.label,
+          url: reminder.label === 'QUESTIONNAIRE' ? '/(questionnaires)' : '/(sensor)'
+        },
         notification: {
           title: template.title,
           body: template.body,

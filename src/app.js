@@ -19,6 +19,7 @@ import samRoutes from '@/routes/sam.js'
 import notificationsRoutes from '@/routes/notifications.js'
 import popupsRoutes from '@/routes/popups.js'
 import remindersRoutes from '@/routes/reminders.js'
+import sensorRoutes from '@/routes/sensor.js'
 import packageJson from '../package.json' with { type: 'json' }
 import { runCrons } from '@/crons/index.js'
 
@@ -79,6 +80,7 @@ app.use('/sam', samRoutes)
 app.use('/notifications', notificationsRoutes)
 app.use('/popups', popupsRoutes)
 app.use('/reminders', remindersRoutes)
+app.use('/sensor', sensorRoutes)
 app.use('/admin', adminRoutes)
 
 app.listen(PORT, () => {
