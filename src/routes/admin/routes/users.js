@@ -8,9 +8,12 @@ import { isAdmin } from '@/middlewares/auth.js'
 const router = express.Router()
 
 router.post('/create', async (req, res) => {
-  const { account_uid, account_is_admin } = req.body
+  const { account_uid, account_is_admin, creation_date, created_at } = req.body
+  const dateValue = creation_date || created_at
 
-  if (!account_uid || !account_is_admin) return res.sendStatus(400)
+  if (!account_uid || account_is_admin === undefined || account_is_admin === null) {
+    return res.sendStatus(400)
+  }
 
   const client = await pool.getClient()
 
@@ -35,10 +38,17 @@ router.post('/create', async (req, res) => {
     const randomIndex = Math.floor(Math.random() * availableTeams.length)
     const assignedTeam = availableTeams[randomIndex]
 
-    await client.query(
-      'INSERT INTO users (uid, admin, team) VALUES ($1, $2, $3)',
-      [account_uid, account_is_admin, assignedTeam]
-    )
+    if (dateValue && dateValue.toString().trim() !== '') {
+      await client.query(
+        'INSERT INTO users (uid, admin, team, created_at) VALUES ($1, $2, $3, $4)',
+        [account_uid, account_is_admin, assignedTeam, dateValue]
+      )
+    } else {
+      await client.query(
+        'INSERT INTO users (uid, admin, team) VALUES ($1, $2, $3)',
+        [account_uid, account_is_admin, assignedTeam]
+      )
+    }
 
     await client.query('COMMIT')
 
@@ -58,7 +68,10 @@ router.get('/list', isAdmin, async (req, res) => {
   const client = await pool.getClient()
 
   try {
-    const q1 = await client.query('SELECT id, uid, admin, last_login, created_at FROM users', [])
+    const q1 = await client.query(
+      'SELECT id, uid, admin, team, last_login, created_at, created_at AS creation_date FROM users ORDER BY id DESC',
+      []
+    )
 
     return res.status(200).json({ users: q1.rows })
   } catch (err) {
