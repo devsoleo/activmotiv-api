@@ -1,10 +1,14 @@
+-- Schema final de la base de donnees ActivMotiv
+-- Fusion de toutes les migrations (0000000000000_database.sql a 0000000000005_create_sensor_table.sql)
+
 CREATE TABLE users (
     id SERIAL PRIMARY KEY NOT NULL,
     uid varchar(8) NOT NULL UNIQUE,
     password varchar(60),
     admin BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    team INTEGER DEFAULT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE sam (
@@ -14,9 +18,11 @@ CREATE TABLE sam (
     valence INTEGER,
     arousal INTEGER,
     hidden BOOLEAN DEFAULT FALSE,
-    updated_at TIMESTAMP,
+    updated_at TIMESTAMPTZ,
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
+
+CREATE UNIQUE INDEX idx_sam_user_image ON sam (user_id, image);
 
 CREATE TABLE popups (
     id SERIAL PRIMARY KEY NOT NULL,
@@ -24,7 +30,7 @@ CREATE TABLE popups (
     duration INTEGER NOT NULL,
     image_top INTEGER NOT NULL,
     image_bottom INTEGER NOT NULL,
-    measured_at TIMESTAMP,
+    measured_at TIMESTAMPTZ,
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
@@ -32,7 +38,8 @@ CREATE TABLE questionnaires (
     id SERIAL PRIMARY KEY NOT NULL,
     user_id INTEGER NOT NULL,
     label varchar(20) NOT NULL,
-    completed_at TIMESTAMP,
+    completed_at TIMESTAMPTZ,
+    data JSONB,
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
@@ -48,7 +55,7 @@ CREATE TABLE devices (
     design_name VARCHAR(100),
     device_type SMALLINT,
     device_year_class INT,
-    
+
     is_device BOOLEAN,
 
     manufacturer VARCHAR(100),
@@ -67,11 +74,10 @@ CREATE TABLE devices (
     supported_cpu_architectures VARCHAR(100),
     total_memory BIGINT,
 
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT unique_user_device UNIQUE (user_id, android_id)
 );
-
-ALTER TABLE devices ADD CONSTRAINT unique_user_device UNIQUE (user_id, android_id);
 
 CREATE TABLE notifications_token (
     id SERIAL PRIMARY KEY NOT NULL,
@@ -85,9 +91,32 @@ CREATE TABLE notifications (
     device_id INTEGER NOT NULL,
     template varchar(20) NOT NULL,
     status varchar(10) DEFAULT 'pending',
-    scheduled_at TIMESTAMP,
+    scheduled_at TIMESTAMPTZ,
     CONSTRAINT fk_device FOREIGN KEY (device_id) REFERENCES devices (id) ON DELETE CASCADE
 );
+
+CREATE TABLE reminders (
+    id SERIAL PRIMARY KEY NOT NULL,
+    user_id INTEGER NOT NULL,
+    reminder_time TIME NOT NULL,
+    label varchar(20) NOT NULL,
+    day_of_week varchar(3) NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT uq_reminder UNIQUE (user_id, label, day_of_week)
+);
+
+CREATE INDEX idx_reminders_trigger ON reminders(day_of_week, reminder_time, label);
+
+CREATE TABLE sensor (
+    id SERIAL PRIMARY KEY NOT NULL,
+    user_id INTEGER NOT NULL,
+    measurement_date TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_sensor_user_date ON sensor (user_id, measurement_date);
 
 -- adminacc / adminacc
 INSERT INTO users (uid, password, admin) VALUES ('adminacc', '$2b$12$B3QAODM2r6RRFkTBf17Pv.rgXyvuehNI/6cKPYwPGoCP0eU1BcvpW', true);
