@@ -43,3 +43,28 @@ export function isUserInActivePhase(user) {
 
   return false
 }
+
+export function getNextQuestionnaireDate(user) {
+  if (!user || !user.created_at || user.team == null) {
+    return null
+  }
+
+  const team = parseInt(user.team, 10)
+  const teamPhases = PHASES_BY_TEAM[team]
+
+  if (!teamPhases) {
+    return null
+  }
+
+  const now = Date.now()
+
+  for (const phase of teamPhases) {
+    const debut = dayjs(user.created_at).tz().startOf('day').add(phase.startDays, 'day')
+
+    if (now < debut.valueOf()) {
+      return debut.toISOString()
+    }
+  }
+
+  return null
+}

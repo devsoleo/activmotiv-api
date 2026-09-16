@@ -29,7 +29,7 @@ const DEFAULT_REMINDERS = {
   },
 }
 
-// Validate HH:mm time string is between 00h00 and 13h00 inclusive
+// Validate HH:mm time string is between 05h00 and 13h00 inclusive
 const isAllowedTime = (timeStr) => {
   if (typeof timeStr !== 'string') return false
   const match = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/.exec(timeStr)
@@ -37,7 +37,7 @@ const isAllowedTime = (timeStr) => {
   const hours = parseInt(match[1], 10)
   const minutes = parseInt(match[2], 10)
 
-  if (hours < 0 || hours > 13) return false
+  if (hours < 5 || hours > 13) return false
   if (hours === 13 && minutes > 0) return false
 
   return true

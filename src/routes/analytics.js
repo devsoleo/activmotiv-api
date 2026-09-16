@@ -5,8 +5,120 @@ import logger from '@/logger/index.js'
 import pool from '@/database/postgresql/index.js'
 
 import { authenticateToken } from '@/middlewares/auth.js'
+import { isUserInActivePhase, getNextQuestionnaireDate } from '@/utils/phases.js'
 
 const router = express.Router()
+
+router.get('/steppers', authenticateToken, async (req, res) => {
+  const user = req.user
+
+  const client = await pool.getClient()
+
+  try {
+    const userResult = await client.query('SELECT team, created_at FROM users WHERE id = $1', [user.id])
+    const u = userResult.rows[0]
+    const inActivePhase = isUserInActivePhase(u)
+    const nextQuestionnaireDate = getNextQuestionnaireDate(u)
+
+    const qCurrentTime = await client.query(
+      `SELECT 
+        EXTRACT(ISODOW FROM (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')) AS dow,
+        EXTRACT(HOUR FROM (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')) AS hour`
+    )
+    const currentDow = parseInt(qCurrentTime.rows[0].dow, 10)
+    const currentHour = parseInt(qCurrentTime.rows[0].hour, 10)
+    const currentDayIndex = currentDow - 1
+
+    const qQuestionnaires = await client.query(
+      `SELECT 
+        EXTRACT(ISODOW FROM completed_at AT TIME ZONE 'Europe/Paris') AS dow,
+        COUNT(*) AS count
+       FROM questionnaires 
+       WHERE user_id = $1 
+         AND completed_at >= date_trunc('week', (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris'))
+         AND completed_at < date_trunc('week', (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')) + INTERVAL '1 week'
+       GROUP BY dow`,
+      [user.id]
+    )
+
+    const qSensor = await client.query(
+      `SELECT 
+        EXTRACT(ISODOW FROM measurement_date AT TIME ZONE 'Europe/Paris') AS dow,
+        COUNT(*) AS count
+       FROM sensor 
+       WHERE user_id = $1 
+         AND measurement_date >= date_trunc('week', (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris'))
+         AND measurement_date < date_trunc('week', (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')) + INTERVAL '1 week'
+       GROUP BY dow`,
+      [user.id]
+    )
+
+    const labels = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+
+    const qCompletedSet = new Set(
+      qQuestionnaires.rows
+        .filter(row => parseInt(row.count, 10) > 0)
+        .map(row => parseInt(row.dow, 10) - 1)
+    )
+
+    const sCompletedSet = new Set(
+      qSensor.rows
+        .filter(row => parseInt(row.count, 10) > 0)
+        .map(row => parseInt(row.dow, 10) - 1)
+    )
+
+    const questionnaires = labels.map((label, index) => {
+      let status = 'empty'
+      if (qCompletedSet.has(index)) {
+        status = 'done'
+      } else if (index < currentDayIndex) {
+        status = 'not-done'
+      } else if (index === currentDayIndex) {
+        status = currentHour >= 13 ? 'not-done' : 'empty'
+      } else {
+        status = 'empty'
+      }
+      return {
+        label,
+        status,
+        completed: status === 'done'
+      }
+    })
+
+    const sensor = labels.map((label, index) => {
+      let status = 'empty'
+      if (sCompletedSet.has(index)) {
+        status = 'done'
+      } else if (index < currentDayIndex) {
+        status = 'not-done'
+      } else {
+        status = 'empty'
+      }
+      return {
+        label,
+        status,
+        completed: status === 'done'
+      }
+    })
+
+    const questionnairesCount = questionnaires.filter(d => d.status === 'done').length
+    const sensorCount = sensor.filter(d => d.status === 'done').length
+
+    return res.status(200).json({
+      questionnaires,
+      sensor,
+      questionnairesCount,
+      sensorCount,
+      inActivePhase,
+      nextQuestionnaireDate
+    })
+  } catch (err) {
+    logger.error("Error fetching steppers analytics:", err)
+    return res.sendStatus(500)
+  } finally {
+    client.release()
+  }
+})
 
 router.get('/popup', authenticateToken, async (req, res) => {
   const user = req.user

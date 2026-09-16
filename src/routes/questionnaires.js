@@ -66,7 +66,8 @@ router.get('/', authenticateToken, async (req, res) => {
 })
 
 router.get('/status', authenticateToken, async (req, res) => {
-  if (dayjs().tz().hour() >= 13) {
+  const currentHour = dayjs().tz().hour()
+  if (currentHour < 5 || currentHour >= 13) {
     return res.status(200).json({ display: false })
   }
 
