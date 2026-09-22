@@ -29,7 +29,7 @@ router.post('/toggle', authenticateToken, async (req, res) => {
       const currentDow = parseInt(qDow.rows[0].dow, 10)
       const currentDayIndex = currentDow - 1
 
-      if (dayIndex > currentDayIndex) {
+      if (!user.admin && dayIndex > currentDayIndex) {
         return res.status(400).json({ error: "Impossible de valider un jour futur" })
       }
 

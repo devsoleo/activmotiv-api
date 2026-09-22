@@ -8,6 +8,10 @@ import { authenticateToken } from '@/middlewares/auth.js'
 const router = express.Router()
 
 router.get('/status', authenticateToken, async (req, res) => {
+  if (req.user && req.user.admin) {
+    return res.status(200).json({ popups: true })
+  }
+
   const client = await pool.getClient()
 
   try {

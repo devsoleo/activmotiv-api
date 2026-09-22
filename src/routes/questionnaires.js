@@ -66,24 +66,28 @@ router.get('/', authenticateToken, async (req, res) => {
 })
 
 router.get('/status', authenticateToken, async (req, res) => {
-  const currentHour = dayjs().tz().hour()
-  if (currentHour < 5 || currentHour >= 13) {
-    return res.status(200).json({ display: false })
+  if (!req.user.admin) {
+    const currentHour = dayjs().tz().hour()
+    if (currentHour < 5 || currentHour >= 13) {
+      return res.status(200).json({ display: false })
+    }
   }
 
   const client = await pool.getClient()
 
   try {
-    const completedTodayResult = await client.query(
-      `SELECT COUNT(*) FROM questionnaires WHERE user_id = $1 AND completed_at >= (CURRENT_DATE AT TIME ZONE 'Europe/Paris')`,
-      [req.user.id]
-    )
+    if (!req.user.admin) {
+      const completedTodayResult = await client.query(
+        `SELECT COUNT(*) FROM questionnaires WHERE user_id = $1 AND completed_at >= (CURRENT_DATE AT TIME ZONE 'Europe/Paris')`,
+        [req.user.id]
+      )
 
-    if (parseInt(completedTodayResult.rows[0].count, 10) > 0) {
-      return res.status(200).json({ display: false })
+      if (parseInt(completedTodayResult.rows[0].count, 10) > 0) {
+        return res.status(200).json({ display: false })
+      }
     }
 
-    const result = await client.query('SELECT team, created_at FROM users WHERE id = $1', [req.user.id])
+    const result = await client.query('SELECT team, created_at, admin FROM users WHERE id = $1', [req.user.id])
     const u = result.rows[0]
 
     const display = isUserInActivePhase(u)

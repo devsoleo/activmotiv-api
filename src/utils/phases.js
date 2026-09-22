@@ -19,6 +19,10 @@ export const PHASES_BY_TEAM = {
 }
 
 export function isUserInActivePhase(user) {
+  if (user && user.admin) {
+    return true
+  }
+
   if (!user || !user.created_at || user.team == null) {
     return false
   }
@@ -45,26 +49,29 @@ export function isUserInActivePhase(user) {
 }
 
 export function getNextQuestionnaireDate(user) {
-  if (!user || !user.created_at || user.team == null) {
-    return null
-  }
+  const now = dayjs().tz()
+  const createdAt = (user && user.created_at) ? dayjs(user.created_at).tz() : now
+  const team = (user && user.team != null) ? parseInt(user.team, 10) : 1
+  const teamPhases = PHASES_BY_TEAM[team] || PHASES_BY_TEAM[1]
 
-  const team = parseInt(user.team, 10)
-  const teamPhases = PHASES_BY_TEAM[team]
-
-  if (!teamPhases) {
-    return null
-  }
-
-  const now = Date.now()
+  const nowValue = now.valueOf()
 
   for (const phase of teamPhases) {
-    const debut = dayjs(user.created_at).tz().startOf('day').add(phase.startDays, 'day')
+    const debut = createdAt.startOf('day').add(phase.startDays, 'day')
+    const fin = createdAt.add(phase.endDays, 'day').endOf('day')
 
-    if (now < debut.valueOf()) {
+    if (nowValue >= debut.valueOf() && nowValue <= fin.valueOf()) {
+      return now.add(1, 'day').startOf('day').toISOString()
+    }
+  }
+
+  for (const phase of teamPhases) {
+    const debut = createdAt.startOf('day').add(phase.startDays, 'day')
+
+    if (nowValue < debut.valueOf()) {
       return debut.toISOString()
     }
   }
 
-  return null
+  return now.add(1, 'day').startOf('day').toISOString()
 }
