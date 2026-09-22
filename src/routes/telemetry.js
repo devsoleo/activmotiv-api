@@ -20,6 +20,11 @@ router.put('/device', authenticateToken, async (req, res) => {
   const data = validation.data
   const user_id = req.user.id
 
+  if (!data.androidId) {
+    logger.warn({ message: 'androidId missing or null in telemetry, device not updated', uid: user_id })
+    return res.sendStatus(200)
+  }
+
   const client = await pool.getClient()
 
   try {

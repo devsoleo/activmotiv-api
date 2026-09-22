@@ -20,7 +20,7 @@ router.post('/send', async (req, res) => {
     return res.status(400).json({ error: "Modèle de notification introuvable" })
   }
 
-  const bodyText = typeof template.body === 'function' ? template.body : template.body
+  const bodyText = template.body
   const titleText = template.title
   const url = type === 'QUESTIONNAIRE' ? '/(questionnaires)' : '/(sensor)'
 
@@ -78,7 +78,7 @@ router.post('/send', async (req, res) => {
       }
     }
 
-    logger.info({ message: `Admin demo notification validated for user ${req.user.id}`, type })
+    logger.info({ message: `Admin demo notification sent for user ${req.user.id}`, type, successCount, failureCount })
 
     return res.status(200).json({
       success: true,
@@ -87,10 +87,12 @@ router.post('/send', async (req, res) => {
         body: bodyText,
         type,
         url,
-        channelId: template.channelId
+        channelId: template.channelId,
+        imageUrl: template.imageUrl,
+        color: template.color
       },
-      fcm: { successCount, failureCount },
-      message: `Notification ${type === 'SENSOR' ? 'capteur' : 'questionnaire'} validée.`
+      fcm: { successCount, failureCount, totalTokens: rows.length },
+      message: `Notification ${type === 'SENSOR' ? 'capteur' : 'questionnaire'} envoyée.`
     })
   } catch (err) {
     logger.error("Error in admin notification send:", err)

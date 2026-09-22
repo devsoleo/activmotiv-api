@@ -20,7 +20,7 @@ const deviceSchema = z.object({
 })
 
 export const updateDeviceRequestSchema = z.object({
-    androidId: z.string().min(1, "androidId est requis"),
+    androidId: z.string().nullable().optional(),
     device: deviceSchema
 })
 
