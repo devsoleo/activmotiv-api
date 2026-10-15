@@ -15,7 +15,7 @@ router.post('/login', async (req, res) => {
   const client = await pool.getClient()
 
   try {
-    const q1 = await client.query(`SELECT * FROM users WHERE admin = true AND uid = $1`, [uid])
+    const q1 = await client.query(`SELECT * FROM users WHERE team = 0 AND uid = $1`, [uid])
     const u = q1.rows[0]
 
     if (!u) {
@@ -40,7 +40,8 @@ router.post('/login', async (req, res) => {
     const payload = {
       id: u.id,
       uid: u.uid,
-      admin: u.admin
+      team: 0,
+      admin: true
     }
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1y' })

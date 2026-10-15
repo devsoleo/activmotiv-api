@@ -3,7 +3,7 @@ import { getMessaging } from 'firebase-admin/messaging'
 import logger from '@/logger/index.js'
 import pool from '@/database/postgresql/index.js'
 import { NOTIFICATION_TEMPLATES } from '@/constants/notifications.js'
-import { isUserInActivePhase } from '@/utils/phases.js'
+import { isUserInQPhase } from '@/utils/phases.js'
 
 const sendFcmNotification = async (client, reminder, templateKey, type, url) => {
   const template = NOTIFICATION_TEMPLATES[templateKey]
@@ -12,11 +12,13 @@ const sendFcmNotification = async (client, reminder, templateKey, type, url) => 
   const message = {
     data: {
       type,
-      url
+      url,
+      ...(template.imageUrl ? { imageUrl: template.imageUrl } : {})
     },
     notification: {
       title: template.title,
       body: template.body,
+      ...(template.imageUrl ? { imageUrl: template.imageUrl } : {})
     },
     android: {
       ttl: 12 * 60 * 60 * 1000, // 12h
@@ -27,12 +29,24 @@ const sendFcmNotification = async (client, reminder, templateKey, type, url) => 
         color: template.color
       }
     },
+    ...(template.imageUrl ? {
+      apns: {
+        payload: {
+          aps: {
+            'mutable-content': 1
+          }
+        },
+        fcmOptions: {
+          imageUrl: template.imageUrl
+        }
+      }
+    } : {}),
     token: reminder.fcm_token,
   }
 
   try {
     await getMessaging().send(message)
-    logger.info(`Notification ${templateKey} envoyée au user ${reminder.user_id}`)
+    logger.info(`Notification ${templisUserInQPhaseateKey} envoyée au user ${reminder.user_id}`)
   } catch (error) {
     if (
       error.code === 'messaging/registration-token-not-registered' ||
@@ -65,14 +79,14 @@ export const handleNotifications = async () => {
         r.label, 
         u.team,
         u.created_at,
-        u.admin,
         nt.device_id, 
         nt.fcm_token 
        FROM reminders r
        JOIN users u ON u.id = r.user_id
        JOIN devices d ON d.user_id = r.user_id AND d.is_active = true
        JOIN notifications_token nt ON nt.device_id = d.id
-       WHERE r.day_of_week = $1 
+       WHERE u.team != -1
+         AND r.day_of_week = $1 
          AND r.reminder_time = $2::time 
          AND nt.fcm_token IS NOT NULL 
          AND nt.fcm_token != ''`,
@@ -80,7 +94,7 @@ export const handleNotifications = async () => {
     )
 
     for (const reminder of rows) {
-      if (reminder.label === 'QUESTIONNAIRE' && !isUserInActivePhase({ team: reminder.team, created_at: reminder.created_at, admin: reminder.admin })) {
+      if (reminder.label === 'QUESTIONNAIRE' && !isUserInQPhase({ team: reminder.team, created_at: reminder.created_at })) {
         continue
       }
 
@@ -100,14 +114,14 @@ export const handleNotifications = async () => {
           r.label, 
           u.team,
           u.created_at,
-          u.admin,
           nt.device_id, 
           nt.fcm_token 
          FROM reminders r
          JOIN users u ON u.id = r.user_id
          JOIN devices d ON d.user_id = r.user_id AND d.is_active = true
          JOIN notifications_token nt ON nt.device_id = d.id
-         WHERE r.label = 'QUESTIONNAIRE'
+         WHERE u.team != -1
+           AND r.label = 'QUESTIONNAIRE'
            AND r.day_of_week = $1 
            AND r.reminder_time = $2::time 
            AND r.reminder_time < '11:00:00'::time
@@ -118,7 +132,7 @@ export const handleNotifications = async () => {
 
       if (recallRows.length > 0) {
         for (const reminder of recallRows) {
-          if (!isUserInActivePhase({ team: reminder.team, created_at: reminder.created_at, admin: reminder.admin })) {
+          if (!isUserInQPhase({ team: reminder.team, created_at: reminder.created_at })) {
             continue
           }
 

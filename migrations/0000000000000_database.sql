@@ -5,8 +5,7 @@ CREATE TABLE users (
     id SERIAL PRIMARY KEY NOT NULL,
     uid varchar(8) NOT NULL UNIQUE,
     password varchar(60),
-    admin BOOLEAN DEFAULT FALSE,
-    team INTEGER DEFAULT NULL,
+    team INTEGER DEFAULT 1,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -111,12 +110,13 @@ CREATE INDEX idx_reminders_trigger ON reminders(day_of_week, reminder_time, labe
 CREATE TABLE sensor (
     id SERIAL PRIMARY KEY NOT NULL,
     user_id INTEGER NOT NULL,
-    measurement_date TIMESTAMPTZ NOT NULL,
+    confirmed BOOLEAN DEFAULT TRUE,
+    updated_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_sensor_user_date ON sensor (user_id, measurement_date);
+CREATE INDEX idx_sensor_user_date ON sensor (user_id, updated_at);
 
 -- adminacc / adminacc
-INSERT INTO users (uid, password, admin) VALUES ('adminacc', '$2b$12$B3QAODM2r6RRFkTBf17Pv.rgXyvuehNI/6cKPYwPGoCP0eU1BcvpW', true);
+INSERT INTO users (uid, password, team) VALUES ('adminacc', '$2b$12$B3QAODM2r6RRFkTBf17Pv.rgXyvuehNI/6cKPYwPGoCP0eU1BcvpW', 0);

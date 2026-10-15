@@ -1,77 +1,75 @@
 import dayjs from 'dayjs'
 
-export const PHASES_BY_TEAM = {
-  1: [
-    { startDays: 1, endDays: 1 + 7 },                                                                        // Phase 1: 1 -> 8
-    { startDays: 1 + 7 + 7 + 7, endDays: 1 + 7 + 7 + 7 + 7 },                                                // Phase 2: 22 -> 29
-    { startDays: 1 + 7 + 7 + 7 + 7 + 7 + 7, endDays: 1 + 7 + 7 + 7 + 7 + 7 + 7 + 7 }                        // Phase 3: 43 -> 50
-  ],
-  2: [
-    { startDays: 1 + 7, endDays: 1 + 7 + 7 },                                                                // Phase 1: 8 -> 15
-    { startDays: 1 + 7 + 7 + 7 + 7, endDays: 1 + 7 + 7 + 7 + 7 + 7 },                                        // Phase 2: 29 -> 36
-    { startDays: 1 + 7 + 7 + 7 + 7 + 7 + 7 + 7, endDays: 1 + 7 + 7 + 7 + 7 + 7 + 7 + 7 + 7 }                // Phase 3: 50 -> 57
-  ],
-  3: [
-    { startDays: 1 + 7 + 7, endDays: 1 + 7 + 7 + 7 },                                                        // Phase 1: 15 -> 22
-    { startDays: 1 + 7 + 7 + 7 + 7 + 7, endDays: 1 + 7 + 7 + 7 + 7 + 7 + 7 },                                // Phase 2: 36 -> 43
-    { startDays: 1 + 7 + 7 + 7 + 7 + 7 + 7 + 7 + 7, endDays: 1 + 7 + 7 + 7 + 7 + 7 + 7 + 7 + 7 + 7 }        // Phase 3: 57 -> 64
-  ]
+export const BASELINES_DURATIONS_BY_TEAM = {
+  1: 1,
+  2: 2,
+  3: 3
 }
 
-export function isUserInActivePhase(user) {
-  if (user && user.admin) {
-    return true
-  }
-
-  if (!user || !user.created_at || user.team == null) {
-    return false
-  }
-
-  const team = parseInt(user.team, 10)
-  const teamPhases = PHASES_BY_TEAM[team]
-
-  if (!teamPhases) {
-    return false
-  }
-
-  const now = Date.now()
-
-  for (const phase of teamPhases) {
-    const debut = dayjs(user.created_at).tz().startOf('day').add(phase.startDays, 'day')
-    const fin = dayjs(user.created_at).tz().add(phase.endDays, 'day').endOf('day')
-
-    if (now >= debut.valueOf() && now <= fin.valueOf()) {
-      return true
-    }
-  }
-
-  return false
+export const POPUP_PHASES_BY_TEAM = {
+  1: [ 0, 1, 6 ],
+  2: [ 0, 2, 7 ],
+  3: [ 0, 3, 8 ]
 }
 
-export function getNextQuestionnaireDate(user) {
+export const QUESTIONNAIRES_PHASES_BY_TEAM = {
+  1: [ 0, 3, 6 ],
+  2: [ 1, 4, 7 ],
+  3: [ 2, 5, 8 ]
+}
+
+export function isUserInPPhase(user) {
+  if (user?.team == null || user?.created_at == null) return false
+
+  const { team, created_at } = user
+
+  if (team <= 0) return false
+
   const now = dayjs().tz()
-  const createdAt = (user && user.created_at) ? dayjs(user.created_at).tz() : now
-  const team = (user && user.team != null) ? parseInt(user.team, 10) : 1
-  const teamPhases = PHASES_BY_TEAM[team] || PHASES_BY_TEAM[1]
+  const t0 = dayjs(created_at).tz()
 
-  const nowValue = now.valueOf()
+  const required_days = BASELINES_DURATIONS_BY_TEAM[team] * 7
 
-  for (const phase of teamPhases) {
-    const debut = createdAt.startOf('day').add(phase.startDays, 'day')
-    const fin = createdAt.add(phase.endDays, 'day').endOf('day')
+  const start_date = t0.add(required_days, 'day')
+  const end_date = startDate.add(5 * 7, 'day')
 
-    if (nowValue >= debut.valueOf() && nowValue <= fin.valueOf()) {
-      return now.add(1, 'day').startOf('day').toISOString()
-    }
-  }
-
-  for (const phase of teamPhases) {
-    const debut = createdAt.startOf('day').add(phase.startDays, 'day')
-
-    if (nowValue < debut.valueOf()) {
-      return debut.toISOString()
-    }
-  }
-
-  return now.add(1, 'day').startOf('day').toISOString()
+  return now.isAfter(start_date) && now.isBefore(end_date)
 }
+
+export function getUserQPhase(user) {
+  if (user?.team == null || user?.created_at == null) return -1
+
+  const { team, created_at } = user
+
+  if (team <= 0) return -1
+
+  const now = dayjs().tz()
+  const t0 = dayjs(created_at).tz()
+
+  const phase = QUESTIONNAIRES_PHASES_BY_TEAM[team].findIndex((start_week) => {
+    const start = t0.add(start_week * 7, 'day')
+    const end = start.add(7, 'day')
+
+    return now.isAfter(start) && now.isBefore(end)
+  })
+
+  return phase
+}
+
+export const isUserInQPhase = (user) => getUserQPhase(user) !== -1
+
+export const nextUserQPhase = (user) => {
+  const { team, created_at } = user
+
+  const now = dayjs().tz()
+  const t0 = dayjs(created_at).tz()
+
+  for (const start_week of QUESTIONNAIRES_PHASES_BY_TEAM[team]) {
+    const start = t0.add(start_week * 7, 'day')
+
+    if (now.isBefore(start)) return start.toISOString()
+  }
+
+  return null
+}
+

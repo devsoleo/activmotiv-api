@@ -7,7 +7,7 @@ import { sendMail } from '@/mailer/index.js'
 
 import { authenticateToken } from '@/middlewares/auth.js'
 import { questionnaireSchema } from '@/validators/questionnaire.schema.js'
-import { isUserInActivePhase } from '@/utils/phases.js'
+import { isUserInQPhase } from '@/utils/phases.js'
 
 const router = express.Router()
 
@@ -66,35 +66,32 @@ router.get('/', authenticateToken, async (req, res) => {
 })
 
 router.get('/status', authenticateToken, async (req, res) => {
-  if (!req.user.admin) {
-    const currentHour = dayjs().tz().hour()
-    if (currentHour < 5 || currentHour >= 13) {
-      return res.status(200).json({ display: false })
-    }
-  }
+  const isAdmin = req.user.team === 0
+
+  if (isAdmin) return res.status(200).json({ display: true })
+
+  const currentHour = dayjs().tz().hour()
+  const inTimeWindow = currentHour >= 5 && currentHour <= 12
+
+  if (!inTimeWindow) return res.status(200).json({ display: false })
 
   const client = await pool.getClient()
 
   try {
-    if (!req.user.admin) {
-      const completedTodayResult = await client.query(
-        `SELECT COUNT(*) FROM questionnaires WHERE user_id = $1 AND completed_at >= (CURRENT_DATE AT TIME ZONE 'Europe/Paris')`,
-        [req.user.id]
-      )
+    const completedTodayCount = await client.query(`SELECT COUNT(*) FROM questionnaires WHERE user_id = $1 AND completed_at >= (CURRENT_DATE AT TIME ZONE 'Europe/Paris')`, [req.user.id])
 
-      if (parseInt(completedTodayResult.rows[0].count, 10) > 0) {
-        return res.status(200).json({ display: false })
-      }
-    }
+    const count = completedTodayCount?.rows?.[0]?.count ? Number.parseInt(completedTodayCount.rows[0].count) : 0
 
-    const result = await client.query('SELECT team, created_at, admin FROM users WHERE id = $1', [req.user.id])
-    const u = result.rows[0]
+    if (count > 0) return res.status(200).json({ display: false })
 
-    const display = isUserInActivePhase(u)
+    const result = await client.query('SELECT team, created_at FROM users WHERE id = $1', [req.user.id])
+    const user = result.rows[0]
 
-    return res.status(200).json({ display })
+    if (isUserInQPhase(user) || user?.team == 0) return res.status(200).json({ display: true })
+
+    return res.status(200).json({ display: false })
   } catch (err) {
-    logger.error("Error checking questionnaire status:", err)
+    logger.error("Error :", err)
     return res.sendStatus(500)
   } finally {
     client.release()

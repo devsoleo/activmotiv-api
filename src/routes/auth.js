@@ -89,6 +89,11 @@ router.post('/login', async (req, res) => {
       return res.sendStatus(401)
     }
 
+    if (u.team === -1) {
+      logger.warn({ message: "Login failed", reason: "Account disabled", uid })
+      return res.status(403).json({ error: "Compte désactivé" })
+    }
+
     await client.query('UPDATE users SET last_login = NOW() WHERE uid = $1', [u.uid])
 
     const validPassword = await bcrypt.compare(password, u.password)
@@ -102,7 +107,8 @@ router.post('/login', async (req, res) => {
     const payload = {
       id: u.id,
       uid: u.uid,
-      admin: u.admin
+      team: u.team,
+      admin: u.team === 0
     }
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1y' })
@@ -120,7 +126,7 @@ router.post('/login', async (req, res) => {
 
 router.get('/onboarding-status', authenticateToken, async (req, res) => {
   const user = req.user
-  if (user.admin) {
+  if (user.team === 0 || user.admin) {
     return res.status(200).json({ onboarded: true })
   }
 

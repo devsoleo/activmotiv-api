@@ -17,6 +17,7 @@ router.post('/toggle', authenticateToken, async (req, res) => {
 
   try {
     let dayStart, dayEnd
+    let isToday = false
 
     if (typeof dayIndex === 'number') {
       if (dayIndex < 0 || dayIndex > 6) {
@@ -29,9 +30,11 @@ router.post('/toggle', authenticateToken, async (req, res) => {
       const currentDow = parseInt(qDow.rows[0].dow, 10)
       const currentDayIndex = currentDow - 1
 
-      if (!user.admin && dayIndex > currentDayIndex) {
+      if (user.team !== 0 && !user.admin && dayIndex > currentDayIndex) {
         return res.status(400).json({ error: "Impossible de valider un jour futur" })
       }
+
+      isToday = (dayIndex === currentDayIndex)
 
       const qMonday = await client.query(
         `SELECT date_trunc('week', (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')) AS monday`
@@ -42,39 +45,40 @@ router.post('/toggle', authenticateToken, async (req, res) => {
     } else if (date) {
       dayStart = dayjs(date).tz().startOf('day').toISOString()
       dayEnd = dayjs(date).tz().endOf('day').toISOString()
+      isToday = dayjs(date).tz().isSame(dayjs().tz(), 'day')
     } else {
       dayStart = dayjs().tz().startOf('day').toISOString()
       dayEnd = dayjs().tz().endOf('day').toISOString()
+      isToday = true
     }
 
     const checkResult = await client.query(
-      `SELECT id FROM sensor WHERE user_id = $1 AND measurement_date >= $2 AND measurement_date <= $3`,
+      `SELECT id, confirmed FROM sensor WHERE user_id = $1 AND updated_at >= $2 AND updated_at <= $3 ORDER BY updated_at DESC LIMIT 1`,
       [user.id, dayStart, dayEnd]
     )
 
     let confirmed = false
 
     if (checkResult.rows.length > 0) {
+      const existingRow = checkResult.rows[0]
+      confirmed = !existingRow.confirmed
+
       await client.query(
-        `DELETE FROM sensor WHERE user_id = $1 AND measurement_date >= $2 AND measurement_date <= $3`,
-        [user.id, dayStart, dayEnd]
+        `UPDATE sensor SET confirmed = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+        [confirmed, existingRow.id]
       )
-      confirmed = false
-      logger.info({ message: `Sensor confirmation removed for user ${user.id} on ${dayStart}` })
     } else {
-      const measurementDate = dayjs(dayStart).add(12, 'hour').toISOString()
-      await client.query(
-        `INSERT INTO sensor (user_id, measurement_date) VALUES ($1, $2)`,
-        [user.id, measurementDate]
-      )
+      const measurementDate = isToday ? dayjs().toISOString() : dayjs(dayStart).add(12, 'hour').toISOString()
       confirmed = true
-      logger.info({ message: `Sensor confirmation added for user ${user.id} on ${dayStart}` })
+      await client.query(
+        `INSERT INTO sensor (user_id, updated_at, confirmed, created_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+        [user.id, measurementDate, confirmed]
+      )
     }
 
     return res.status(200).json({
       success: true,
-      confirmed,
-      message: confirmed ? "Port du capteur enregistré" : "Port du capteur retiré"
+      confirmed
     })
   } catch (err) {
     logger.error("Error toggling sensor status:", err)
@@ -89,14 +93,29 @@ router.post('/', authenticateToken, async (req, res) => {
   const user = req.user
   const { timestamp } = req.body
   const measurementDate = timestamp ? dayjs(timestamp).toISOString() : dayjs().toISOString()
+  const dayStart = dayjs(measurementDate).tz().startOf('day').toISOString()
+  const dayEnd = dayjs(measurementDate).tz().endOf('day').toISOString()
 
   const client = await pool.getClient()
 
   try {
-    await client.query(
-      `INSERT INTO sensor (user_id, measurement_date) VALUES ($1, $2)`,
-      [user.id, measurementDate]
+    const checkResult = await client.query(
+      `SELECT id FROM sensor WHERE user_id = $1 AND updated_at >= $2 AND updated_at <= $3 ORDER BY updated_at DESC LIMIT 1`,
+      [user.id, dayStart, dayEnd]
     )
+
+    if (checkResult.rows.length > 0) {
+      const existingId = checkResult.rows[0].id
+      await client.query(
+        `UPDATE sensor SET confirmed = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [existingId]
+      )
+    } else {
+      await client.query(
+        `INSERT INTO sensor (user_id, updated_at, confirmed, updated_at) VALUES ($1, $2, true, CURRENT_TIMESTAMP)`,
+        [user.id, measurementDate]
+      )
+    }
 
     logger.info({ message: `Sensor confirmation recorded for user ${user.id}` })
     return res.status(200).json({ success: true, message: "Port du capteur enregistré" })
@@ -115,7 +134,7 @@ router.get('/today', authenticateToken, async (req, res) => {
 
   try {
     const result = await client.query(
-      `SELECT COUNT(*) FROM sensor WHERE user_id = $1 AND measurement_date >= (CURRENT_DATE AT TIME ZONE 'Europe/Paris')`,
+      `SELECT COUNT(*) FROM sensor WHERE user_id = $1 AND confirmed IS TRUE AND updated_at >= (CURRENT_DATE AT TIME ZONE 'Europe/Paris')`,
       [user.id]
     )
 

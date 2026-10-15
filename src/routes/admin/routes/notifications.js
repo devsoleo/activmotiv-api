@@ -54,8 +54,16 @@ router.post('/send', async (req, res) => {
     if (rows.length > 0) {
       for (const tokenRow of rows) {
         const message = {
-          data: { type, url },
-          notification: { title: titleText, body: bodyText },
+          data: {
+            type,
+            url,
+            ...(template.imageUrl ? { imageUrl: template.imageUrl } : {})
+          },
+          notification: {
+            title: titleText,
+            body: bodyText,
+            ...(template.imageUrl ? { imageUrl: template.imageUrl } : {})
+          },
           android: {
             ttl: 12 * 60 * 60 * 1000,
             priority: 'high',
@@ -65,6 +73,18 @@ router.post('/send', async (req, res) => {
               color: template.color
             }
           },
+          ...(template.imageUrl ? {
+            apns: {
+              payload: {
+                aps: {
+                  'mutable-content': 1
+                }
+              },
+              fcmOptions: {
+                imageUrl: template.imageUrl
+              }
+            }
+          } : {}),
           token: tokenRow.fcm_token,
         }
 

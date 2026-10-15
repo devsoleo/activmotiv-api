@@ -97,7 +97,7 @@ router.put('/', authenticateToken, async (req, res) => {
         for (const day of DAYS_OF_WEEK) {
           const timeVal = typeData[day]
           if (timeVal !== undefined && timeVal !== null) {
-            if (!isAllowedTime(timeVal, user.admin)) {
+            if (!isAllowedTime(timeVal, user.team === 0 || user.admin)) {
               await client.query('ROLLBACK')
               return res.status(400).json({
                 error: `L'heure de rappel doit être comprise entre 00h00 et 13h00 (reçu '${timeVal}' pour ${type} - ${day}).`,
