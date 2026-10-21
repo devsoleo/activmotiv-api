@@ -35,8 +35,8 @@ const isAllowedTime = (timeStr, isAdmin = false) => {
   const match = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/.exec(timeStr)
   if (!match) return false
   if (isAdmin) return true
-  const hours = parseInt(match[1], 10)
-  const minutes = parseInt(match[2], 10)
+  const hours = Number.parseInt(match[1], 10)
+  const minutes = Number.parseInt(match[2], 10)
 
   if (hours < 5 || hours > 13) return false
   if (hours === 13 && minutes > 0) return false
@@ -97,7 +97,7 @@ router.put('/', authenticateToken, async (req, res) => {
         for (const day of DAYS_OF_WEEK) {
           const timeVal = typeData[day]
           if (timeVal !== undefined && timeVal !== null) {
-            if (!isAllowedTime(timeVal, user.team === 0 || user.admin)) {
+            if (!isAllowedTime(timeVal, user.team === 0)) {
               await client.query('ROLLBACK')
               return res.status(400).json({
                 error: `L'heure de rappel doit être comprise entre 00h00 et 13h00 (reçu '${timeVal}' pour ${type} - ${day}).`,

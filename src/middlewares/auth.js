@@ -4,16 +4,14 @@ import logger from '@/logger/index.js'
 import pool from '@/database/postgresql/index.js'
 
 export const isAdmin = async (req, res, next) => {
-  if (!req.user || !req.user.id) return res.sendStatus(401)
+  if (!req.user?.id) return res.sendStatus(401)
 
   try {
     const { rows } = await pool.query('SELECT team FROM users WHERE id = $1', [req.user.id])
-    if (!rows[0] || rows[0].team !== 0) {
-      logger.warn({ message: "Admin check failed in DB (team != 0)", userId: req.user.id })
-      return res.sendStatus(403)
-    }
+
+    if (rows[0]?.team !== 0) return res.sendStatus(403)
+
     req.user.team = 0
-    req.user.admin = true
     next()
   } catch (err) {
     logger.error("Error verifying admin status in DB:", err)

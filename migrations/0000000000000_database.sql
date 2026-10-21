@@ -110,13 +110,12 @@ CREATE INDEX idx_reminders_trigger ON reminders(day_of_week, reminder_time, labe
 CREATE TABLE sensor (
     id SERIAL PRIMARY KEY NOT NULL,
     user_id INTEGER NOT NULL,
-    confirmed BOOLEAN DEFAULT TRUE,
-    updated_at TIMESTAMPTZ NOT NULL,
+    day DATE NOT NULL,
+    updated_at TIMESTAMPTZ  DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT uq_sensor_user_day UNIQUE (user_id, day)
 );
-
-CREATE INDEX idx_sensor_user_date ON sensor (user_id, updated_at);
 
 -- adminacc / adminacc
 INSERT INTO users (uid, password, team) VALUES ('adminacc', '$2b$12$B3QAODM2r6RRFkTBf17Pv.rgXyvuehNI/6cKPYwPGoCP0eU1BcvpW', 0);

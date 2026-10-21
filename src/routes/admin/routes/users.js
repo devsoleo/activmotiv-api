@@ -21,14 +21,14 @@ router.post('/create', async (req, res) => {
   try {
     await client.query('BEGIN')
 
-    let assignedTeam = team !== undefined && team !== null ? parseInt(team, 10) : undefined
+    let assignedTeam = team !== undefined && team !== null ? Number.parseInt(team, 10) : undefined
 
-    if (assignedTeam === undefined || isNaN(assignedTeam)) {
+    if (assignedTeam === undefined || Number.isNaN(assignedTeam)) {
       if (account_is_admin === true || account_is_admin === 'true') {
         assignedTeam = 0
       } else {
         const countRes = await client.query('SELECT COUNT(*) FROM users WHERE team > 0')
-        const totalUsers = parseInt(countRes.rows[0].count, 10)
+        const totalUsers = Number.parseInt(countRes.rows[0].count, 10)
 
         const usedInBlockCount = totalUsers % 3
         let availableTeams = [1, 2, 3]
@@ -38,8 +38,8 @@ router.post('/create', async (req, res) => {
             'SELECT team FROM users WHERE team > 0 ORDER BY id DESC LIMIT $1',
             [usedInBlockCount]
           )
-          const usedTeams = recentRes.rows.map(row => row.team)
-          availableTeams = availableTeams.filter(t => !usedTeams.includes(t))
+          const usedTeams = new Set(recentRes.rows.map(row => row.team))
+          availableTeams = availableTeams.filter(t => !usedTeams.has(t))
         }
 
         const randomIndex = Math.floor(Math.random() * availableTeams.length)

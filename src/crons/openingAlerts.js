@@ -31,7 +31,7 @@ export const handleOpeningAlerts = async () => {
         [user.id, dayStart, dayEnd]
       )
 
-      const openingCount = parseInt(popupRows[0].count, 10)
+      const openingCount = Number.parseInt(popupRows[0].count, 10)
 
       if (openingCount === 0) {
         const recipient = process.env.SMTP_TO

@@ -1,13 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import dayjs from 'dayjs'
-import utc from 'dayjs/plugin/utc.js'
-import timezone from 'dayjs/plugin/timezone.js'
-
-dayjs.extend(utc)
-dayjs.extend(timezone)
-dayjs.tz.setDefault('Europe/Paris')
-
-import { isUserInQPhase, nextUserQPhase } from '@/utils/phases.js'
+import { isUserInQPhase } from '@/utils/phases.js'
 
 describe('isUserInQPhase', () => {
   it('retourne false pour l\'équipe 0 (admin)', () => {
@@ -17,7 +10,10 @@ describe('isUserInQPhase', () => {
   it('retourne false si l\'utilisateur est invalide', () => {
     expect(isUserInQPhase(null)).toBe(false)
     expect(isUserInQPhase({ team: -1 })).toBe(false)
-    expect(isUserInQPhase({ team: 1 })).toBe(false)
+  })
+
+  it('retourn false si l\'utilisateur n\'est pas en QPhase', () => {
+    expect(isUserInQPhase({ team: 1, created_at: '2026-01-01' })).toBe(false)
   })
 
   it('valide la semaine 0 (Semaines 0, 3, 6) pour l\'Équipe 1', () => {

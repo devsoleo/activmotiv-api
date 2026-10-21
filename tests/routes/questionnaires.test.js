@@ -1,43 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import request from 'supertest'
 import express from 'express'
-import dayjs from 'dayjs'
-import utc from 'dayjs/plugin/utc.js'
-import timezone from 'dayjs/plugin/timezone.js'
-
-dayjs.extend(utc)
-dayjs.extend(timezone)
-dayjs.tz.setDefault('Europe/Paris')
-
-// Mock pool database
-vi.mock('@/database/postgresql/index.js', () => ({
-  default: {
-    getClient: vi.fn(),
-    query: vi.fn(),
-  },
-}))
-
-// Mock logger - affiche les logs de l'API dans la console
-vi.mock('@/logger/index.js', () => ({
-  default: {
-    info: vi.fn((...args) => console.log('[API INFO]', ...args)),
-    error: vi.fn((...args) => console.error('[API ERROR]', ...args)),
-    warn: vi.fn((...args) => console.warn('[API WARN]', ...args)),
-  },
-}))
-
-// Mock auth middleware
-vi.mock('@/middlewares/auth.js', () => ({
-  authenticateToken: (req, res, next) => {
-    if (req.headers['x-test-user']) {
-      req.user = JSON.parse(req.headers['x-test-user'])
-    } else {
-      req.user = { id: 1, uid: 'user-1', team: 1, admin: false }
-    }
-    next()
-  },
-  isAdmin: (req, res, next) => next(),
-}))
 
 import questionnairesRouter from '@/routes/questionnaires.js'
 import pool from '@/database/postgresql/index.js'
@@ -64,7 +27,7 @@ describe('GET /questionnaires/status', () => {
     vi.useRealTimers()
   })
 
-it('retourne display: false si l\'heure est inférieure à 5h', async () => {
+  it('retourne display: false si l\'heure est inférieure à 5h', async () => {
     vi.setSystemTime(new Date('2026-01-01T04:00:00+02:00')) // 01/01/26 à 04h00
 
     const userHeader = JSON.stringify({ id: 1, team: 1 })

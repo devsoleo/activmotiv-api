@@ -126,9 +126,6 @@ router.post('/login', async (req, res) => {
 
 router.get('/onboarding-status', authenticateToken, async (req, res) => {
   const user = req.user
-  if (user.team === 0 || user.admin) {
-    return res.status(200).json({ onboarded: true })
-  }
 
   const client = await pool.getClient()
 

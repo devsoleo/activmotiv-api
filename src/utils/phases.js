@@ -6,7 +6,8 @@ export const BASELINES_DURATIONS_BY_TEAM = {
   3: 3
 }
 
-export const POPUP_PHASES_BY_TEAM = {
+export const STUDY_PHASES_BY_TEAM = {
+  // TEAM ID: [ 0: A, 1: B, 2: A' ] else -1
   1: [ 0, 1, 6 ],
   2: [ 0, 2, 7 ],
   3: [ 0, 3, 8 ]
@@ -18,23 +19,28 @@ export const QUESTIONNAIRES_PHASES_BY_TEAM = {
   3: [ 2, 5, 8 ]
 }
 
-export function isUserInPPhase(user) {
-  if (user?.team == null || user?.created_at == null) return false
+export function getUserStudyPhase(user, now = dayjs().tz()) {
+  if (user?.team == null || user?.created_at == null) return -1
 
   const { team, created_at } = user
 
-  if (team <= 0) return false
+  if (team <= 0) return -1
 
-  const now = dayjs().tz()
   const t0 = dayjs(created_at).tz()
 
-  const required_days = BASELINES_DURATIONS_BY_TEAM[team] * 7
+  const phase = STUDY_PHASES_BY_TEAM[team].findIndex((current_phase, i) => {
+    const next_phase = STUDY_PHASES_BY_TEAM[team][Math.min(i + 1, STUDY_PHASES_BY_TEAM[team].length - 1)]
 
-  const start_date = t0.add(required_days, 'day')
-  const end_date = startDate.add(5 * 7, 'day')
+    const start = t0.add(current_phase * 7, 'day')
+    const end = start.add(next_phase * 7, 'day')
 
-  return now.isAfter(start_date) && now.isBefore(end_date)
+    return now.isAfter(start) && now.isBefore(end)
+  })
+
+  return phase
 }
+
+export const isUserInStudyPhase = (user) => getUserStudyPhase(user) !== -1
 
 export function getUserQPhase(user) {
   if (user?.team == null || user?.created_at == null) return -1
@@ -59,7 +65,11 @@ export function getUserQPhase(user) {
 export const isUserInQPhase = (user) => getUserQPhase(user) !== -1
 
 export const nextUserQPhase = (user) => {
+  if (user?.team == null || user?.created_at == null) return null
+
   const { team, created_at } = user
+
+  if (team <= 0) return null
 
   const now = dayjs().tz()
   const t0 = dayjs(created_at).tz()
