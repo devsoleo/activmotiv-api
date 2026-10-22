@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import request from 'supertest'
 import express from 'express'
 
-import questionnairesRouter from '@/routes/questionnaires.js'
+import formsRouter from '@/routes/forms.js'
 import pool from '@/database/postgresql/index.js'
 
 const app = express()
 app.use(express.json())
-app.use('/questionnaires', questionnairesRouter)
+app.use('/forms', formsRouter)
 
-describe('GET /questionnaires/status', () => {
+describe('GET /forms/status', () => {
   let mockClient
 
   beforeEach(() => {
@@ -32,7 +32,7 @@ describe('GET /questionnaires/status', () => {
 
     const userHeader = JSON.stringify({ id: 1, team: 1 })
     const res = await request(app)
-      .get('/questionnaires/status')
+      .get('/forms/status')
       .set('x-test-user', userHeader)
 
     expect(res.status).toBe(200)
@@ -45,7 +45,7 @@ describe('GET /questionnaires/status', () => {
 
     const userHeader = JSON.stringify({ id: 1, team: 1 })
     const res = await request(app)
-      .get('/questionnaires/status')
+      .get('/forms/status')
       .set('x-test-user', userHeader)
 
     expect(res.status).toBe(200)
@@ -60,13 +60,13 @@ describe('GET /questionnaires/status', () => {
 
     const userHeader = JSON.stringify({ id: 1, team: 1 })
     const res = await request(app)
-      .get('/questionnaires/status')
+      .get('/forms/status')
       .set('x-test-user', userHeader)
 
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ display: false })
     expect(mockClient.query).toHaveBeenCalledWith(
-      expect.stringContaining('SELECT COUNT(*) FROM questionnaires'),
+      expect.stringContaining('SELECT COUNT(*) FROM forms'),
       [1]
     )
     expect(mockClient.release).toHaveBeenCalled()
@@ -80,7 +80,7 @@ describe('GET /questionnaires/status', () => {
 
     const userHeader = JSON.stringify({ id: 1, team: 1 })
     const res = await request(app)
-      .get('/questionnaires/status')
+      .get('/forms/status')
       .set('x-test-user', userHeader)
 
     expect(res.status).toBe(200)
@@ -95,7 +95,7 @@ describe('GET /questionnaires/status', () => {
 
     const userHeader = JSON.stringify({ id: 1, team: 0 })
     const res = await request(app)
-      .get('/questionnaires/status')
+      .get('/forms/status')
       .set('x-test-user', userHeader)
 
     expect(res.status).toBe(200)
@@ -109,7 +109,7 @@ describe('GET /questionnaires/status', () => {
 
     const userHeader = JSON.stringify({ id: 1, team: 1 })
     const res = await request(app)
-      .get('/questionnaires/status')
+      .get('/forms/status')
       .set('x-test-user', userHeader)
 
     expect(res.status).toBe(500)

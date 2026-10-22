@@ -3,7 +3,7 @@ import { getMessaging } from 'firebase-admin/messaging'
 import logger from '@/logger/index.js'
 import pool from '@/database/postgresql/index.js'
 import { NOTIFICATION_TEMPLATES } from '@/constants/notifications.js'
-import { isUserInQPhase } from '@/utils/phases.js'
+import { isUserInFormPhase } from '@/utils/phases.js'
 
 const sendFcmNotification = async (client, reminder, templateKey, type, url) => {
   const template = NOTIFICATION_TEMPLATES[templateKey]
@@ -46,7 +46,7 @@ const sendFcmNotification = async (client, reminder, templateKey, type, url) => 
 
   try {
     await getMessaging().send(message)
-    logger.info(`Notification ${templisUserInQPhaseateKey} envoyée au user ${reminder.user_id}`)
+    logger.info(`Notification ${templisUserInFormPhaseateKey} envoyée au user ${reminder.user_id}`)
   } catch (error) {
     if (
       error.code === 'messaging/registration-token-not-registered' ||
@@ -94,11 +94,11 @@ export const handleNotifications = async () => {
     )
 
     for (const reminder of rows) {
-      if (reminder.label === 'QUESTIONNAIRE' && !isUserInQPhase({ team: reminder.team, created_at: reminder.created_at })) {
+      if (reminder.label === 'FORM' && !isUserInFormPhase({ team: reminder.team, created_at: reminder.created_at })) {
         continue
       }
 
-      const url = reminder.label === 'QUESTIONNAIRE' ? '/(questionnaires)' : '/(sensor)'
+      const url = reminder.label === 'FORM' ? '/(forms)' : '/(sensor)'
       await sendFcmNotification(client, reminder, reminder.label, reminder.label, url)
     }
 
@@ -121,7 +121,7 @@ export const handleNotifications = async () => {
          JOIN devices d ON d.user_id = r.user_id AND d.is_active = true
          JOIN notifications_token nt ON nt.device_id = d.id
          WHERE u.team != -1
-           AND r.label = 'QUESTIONNAIRE'
+           AND r.label = 'FORM'
            AND r.day_of_week = $1 
            AND r.reminder_time = $2::time 
            AND r.reminder_time < '11:00:00'::time
@@ -132,12 +132,12 @@ export const handleNotifications = async () => {
 
       if (recallRows.length > 0) {
         for (const reminder of recallRows) {
-          if (!isUserInQPhase({ team: reminder.team, created_at: reminder.created_at })) {
+          if (!isUserInFormPhase({ team: reminder.team, created_at: reminder.created_at })) {
             continue
           }
 
           const { rows: completedRows } = await client.query(
-            `SELECT COUNT(*) FROM questionnaires WHERE user_id = $1 AND completed_at >= (CURRENT_DATE AT TIME ZONE 'Europe/Paris')`,
+            `SELECT COUNT(*) FROM forms WHERE user_id = $1 AND completed_at >= (CURRENT_DATE AT TIME ZONE 'Europe/Paris')`,
             [reminder.user_id]
           )
 
@@ -147,7 +147,7 @@ export const handleNotifications = async () => {
           }
 
           logger.info(`Envoi de la relance questionnaire 2h au user ${reminder.user_id}`)
-          await sendFcmNotification(client, reminder, 'QUESTIONNAIRE_RECALL', 'QUESTIONNAIRE', '/(questionnaires)')
+          await sendFcmNotification(client, reminder, 'FORM_RECALL', 'FORM', '/(forms)')
         }
       }
     }

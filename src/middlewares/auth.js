@@ -40,8 +40,7 @@ export const authenticateToken = (req, res, next) => {
 
       req.user = {
         ...decodedUser,
-        team: rows[0].team,
-        admin: rows[0].team === 0
+        team: rows[0].team
       }
       next()
     } catch (dbErr) {

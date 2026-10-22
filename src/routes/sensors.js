@@ -8,6 +8,53 @@ import { authenticateToken } from '@/middlewares/auth.js'
 
 const router = express.Router()
 
+router.get('/stepper', authenticateToken, async (req, res) => {
+  const user = req.user
+
+  const client = await pool.getClient()
+
+  try {
+    const r1 = await client.query(`SELECT created_at FROM users WHERE id = $1`, [user.id])
+
+    const created_at = r1.rows[0].created_at
+
+    const r2 = await client.query(`SELECT day FROM sensor WHERE user_id = $1
+      AND day >= date_trunc('week', now() AT TIME ZONE 'Europe/Paris')::date
+      AND day <  date_trunc('week', now() AT TIME ZONE 'Europe/Paris')::date + 7;`, [user.id])
+
+    const labels = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+    const weekStart = dayjs().tz().startOf('isoWeek')
+    const todayIndex = dayjs().tz().isoWeekday() - 1
+
+    const enrichedDates = r2.rows.map((d) => ({
+      ...d,
+      label: labels[dayjs(d.day).isoWeekday() - 1],
+      status: 'done',
+      isTogglable: false,
+    }))
+
+    const doneDays = new Set(
+      enrichedDates.map((d) => dayjs(d.day).tz().format('YYYY-MM-DD'))
+    )
+
+    const week = labels.map((label, i) => {
+      const current = weekStart.add(i, 'day');
+      return {
+        label,
+        status: doneDays.has(current.format('YYYY-MM-DD')) ? 'done' : i < todayIndex ? 'not-done' : 'empty',
+        isTogglable: i <= todayIndex && !current.isBefore(created_at, 'day')
+      }
+    })
+
+    return res.status(200).json({ days: week })
+  } catch (err) {
+    logger.error("Error :", err)
+    return res.sendStatus(500)
+  } finally {
+    client.release()
+  }
+})
+
 router.post('/toggle', authenticateToken, async (req, res) => {
   const user = req.user
   const { weekDayIndex } = req.body
@@ -26,7 +73,7 @@ router.post('/toggle', authenticateToken, async (req, res) => {
       [user.id, formattedDate]
     )
 
-     return res.status(200)
+    return res.sendStatus(200)
   } catch (err) {
     logger.error("Error :", err)
     return res.sendStatus(500)

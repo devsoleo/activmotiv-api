@@ -2,7 +2,7 @@ import dayjs from 'dayjs'
 import logger from '@/logger/index.js'
 import pool from '@/database/postgresql/index.js'
 import { sendMail } from '@/mailer/index.js'
-import { isUserInQPhase } from '@/utils/phases.js'
+import { isUserInFormPhase } from '@/utils/phases.js'
 
 export const handleOpeningAlerts = async () => {
   const client = await pool.getClient()
@@ -20,7 +20,7 @@ export const handleOpeningAlerts = async () => {
     )
 
     for (const user of users) {
-      if (!isUserInQPhase(user)) {
+      if (!isUserInFormPhase(user)) {
         continue
       }
 

@@ -13,7 +13,7 @@ export const STUDY_PHASES_BY_TEAM = {
   3: [ 0, 3, 8 ]
 }
 
-export const QUESTIONNAIRES_PHASES_BY_TEAM = {
+export const FORMS_PHASES_BY_TEAM = {
   1: [ 0, 3, 6 ],
   2: [ 1, 4, 7 ],
   3: [ 2, 5, 8 ]
@@ -34,7 +34,7 @@ export function getUserStudyPhase(user, now = dayjs().tz()) {
     const start = t0.add(current_phase * 7, 'day')
     const end = start.add(next_phase * 7, 'day')
 
-    return now.isAfter(start) && now.isBefore(end)
+    return now.isBetween(start, end, 'day', '[)')
   })
 
   return phase
@@ -42,29 +42,43 @@ export function getUserStudyPhase(user, now = dayjs().tz()) {
 
 export const isUserInStudyPhase = (user) => getUserStudyPhase(user) !== -1
 
-export function getUserQPhase(user) {
+export function getUserFormPhase(user, now = dayjs().tz()) {
   if (user?.team == null || user?.created_at == null) return -1
 
   const { team, created_at } = user
 
   if (team <= 0) return -1
 
-  const now = dayjs().tz()
   const t0 = dayjs(created_at).tz()
 
-  const phase = QUESTIONNAIRES_PHASES_BY_TEAM[team].findIndex((start_week) => {
+  const phase = FORMS_PHASES_BY_TEAM[team].findIndex((start_week) => {
     const start = t0.add(start_week * 7, 'day')
     const end = start.add(7, 'day')
 
-    return now.isAfter(start) && now.isBefore(end)
+    return now.isBetween(start, end, 'day', '[)')
   })
 
   return phase
 }
 
-export const isUserInQPhase = (user) => getUserQPhase(user) !== -1
+export const isUserInFormPhase = (user) => getUserFormPhase(user) !== -1
 
-export const nextUserQPhase = (user) => {
+export function getUserFormPhasePosition(user) {
+  const userPhase = getUserFormPhase(user)
+
+  if (userPhase == -1) return -1
+
+  const { team, created_at } = user
+  const t0 = dayjs(created_at).tz()
+
+  const start_week = FORMS_PHASES_BY_TEAM[team][userPhase]
+  const start = t0.add(start_week * 7, 'day')
+  const end = start.add(7, 'day')
+
+  return 7 - end.diff(dayjs().tz(), 'day')
+}
+
+export const nextUserFormPhase = (user) => {
   if (user?.team == null || user?.created_at == null) return null
 
   const { team, created_at } = user
@@ -74,7 +88,7 @@ export const nextUserQPhase = (user) => {
   const now = dayjs().tz()
   const t0 = dayjs(created_at).tz()
 
-  for (const start_week of QUESTIONNAIRES_PHASES_BY_TEAM[team]) {
+  for (const start_week of FORMS_PHASES_BY_TEAM[team]) {
     const start = t0.add(start_week * 7, 'day')
 
     if (now.isBefore(start)) return start.toISOString()

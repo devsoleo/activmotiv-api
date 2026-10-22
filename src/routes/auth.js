@@ -108,7 +108,7 @@ router.post('/login', async (req, res) => {
       id: u.id,
       uid: u.uid,
       team: u.team,
-      admin: u.team === 0
+      created_at: u.created_at
     }
 
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1y' })

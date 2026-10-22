@@ -1,4 +1,4 @@
-export type NotificationTemplateKey = 'QUESTIONNAIRE' | 'SENSOR' | 'QUESTIONNAIRE_RECALL'
+export type NotificationTemplateKey = 'FORM' | 'SENSOR' | 'FORM_RECALL'
 
 export const SENSOR_NOTIFICATION_BODIES = [
   "Bonjour, pensez à mettre le capteur à la taille aujourd'hui. Retirer le seulement pour la douche ou les activités à risque. Merci !",
@@ -13,17 +13,17 @@ export function getRandomSensorBody(): string {
 }
 
 export const NOTIFICATION_TEMPLATES: Record<NotificationTemplateKey, { title: string, body: string, sound?: string, channelId?: string, color?: string, imageUrl?: string }> = {
-  QUESTIONNAIRE: {
+  FORM: {
     title: "Rappel questionnaire",
     body: "C'est l'heure de remplir votre questionnaire !",
-    channelId: "questionnaire",
+    channelId: "form",
     color: '#29B6F6',
     imageUrl: 'https://activmotiv.fr/static/notifications/ema.png?key=b4b01d6c7472362a30ac5470aac7f6be'
   },
-  QUESTIONNAIRE_RECALL: {
+  FORM_RECALL: {
     title: "Rappel questionnaire",
     body: "Rappel : vous n'avez pas encore rempli votre questionnaire aujourd'hui !",
-    channelId: "questionnaire",
+    channelId: "form",
     color: '#29B6F6',
     imageUrl: 'https://activmotiv.fr/static/notifications/ema.png?key=b4b01d6c7472362a30ac5470aac7f6be'
   },

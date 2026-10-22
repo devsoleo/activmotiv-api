@@ -11,8 +11,8 @@ const router = express.Router()
 router.post('/send', async (req, res) => {
   const { type, targetUserId } = req.body
 
-  if (!type || (type !== 'SENSOR' && type !== 'QUESTIONNAIRE')) {
-    return res.status(400).json({ error: "Le type de notification doit être 'SENSOR' ou 'QUESTIONNAIRE'" })
+  if (!type || (type !== 'SENSOR' && type !== 'FORM')) {
+    return res.status(400).json({ error: "Le type de notification doit être 'SENSOR' ou 'FORM'" })
   }
 
   const template = NOTIFICATION_TEMPLATES[type]
@@ -22,7 +22,7 @@ router.post('/send', async (req, res) => {
 
   const bodyText = template.body
   const titleText = template.title
-  const url = type === 'QUESTIONNAIRE' ? '/(questionnaires)' : '/(sensor)'
+  const url = type === 'FORM' ? '/(forms)' : '/(sensor)'
 
   const client = await pool.getClient()
 

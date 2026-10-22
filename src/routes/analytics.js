@@ -8,100 +8,6 @@ import { authenticateToken } from '@/middlewares/auth.js'
 
 const router = express.Router()
 
-router.get('/steppers/sensor', authenticateToken, async (req, res) => {
-  const user = req.user
-
-  const client = await pool.getClient()
-
-  try {
-    const r1 = await client.query(`SELECT created_at FROM users WHERE id = $1`, [user.id])
-
-    const created_at = r1.rows[0].created_at
-
-    const r2 = await client.query(`SELECT day FROM sensor WHERE user_id = $1
-      AND day >= date_trunc('week', now() AT TIME ZONE 'Europe/Paris')::date
-      AND day <  date_trunc('week', now() AT TIME ZONE 'Europe/Paris')::date + 7;`, [user.id])
-
-    const labels = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
-    const weekStart = dayjs().tz().startOf('isoWeek')
-    const todayIndex = dayjs().tz().isoWeekday() - 1
-
-    const enrichedDates = r2.rows.map((d) => ({
-      ...d,
-      label: labels[dayjs(d.day).isoWeekday() - 1],
-      status: 'done',
-      isTogglable: false,
-    }))
-
-    const doneDays = new Set(
-      enrichedDates.map((d) => dayjs(d.day).tz().format('YYYY-MM-DD'))
-    )
-
-    const week = labels.map((label, i) => {
-      const current = weekStart.add(i, 'day');
-      return {
-        label,
-        status: doneDays.has(current.format('YYYY-MM-DD')) ? 'done' : i < todayIndex ? 'not-done' : 'empty',
-        isTogglable: i <= todayIndex && !current.isBefore(created_at, 'day')
-      }
-    })
-
-    return res.status(200).json({ days: week })
-  } catch (err) {
-    logger.error("Error :", err)
-    return res.sendStatus(500)
-  } finally {
-    client.release()
-  }
-})
-
-router.get('/steppers/form', authenticateToken, async (req, res) => {
-  const user = req.user
-
-  const client = await pool.getClient()
-
-  try {
-    const r1 = await client.query(`SELECT created_at FROM users WHERE id = $1`, [user.id])
-
-    const created_at = r1.rows[0].created_at
-
-    const r2 = await client.query(`SELECT day FROM sensor WHERE user_id = $1
-      AND day >= date_trunc('week', now() AT TIME ZONE 'Europe/Paris')::date
-      AND day <  date_trunc('week', now() AT TIME ZONE 'Europe/Paris')::date + 7;`, [user.id])
-
-    const labels = ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7']
-    const weekStart = dayjs().tz().startOf('isoWeek')
-    const todayIndex = dayjs().tz().isoWeekday() - 1
-
-    const enrichedDates = r2.rows.map((d) => ({
-      ...d,
-      label: labels[dayjs(d.day).isoWeekday() - 1],
-      status: 'done',
-      isTogglable: false,
-    }))
-
-    const doneDays = new Set(
-      enrichedDates.map((d) => dayjs(d.day).tz().format('YYYY-MM-DD'))
-    )
-
-    const week = labels.map((label, i) => {
-      const current = weekStart.add(i, 'day');
-      return {
-        label,
-        status: doneDays.has(current.format('YYYY-MM-DD')) ? 'done' : i < todayIndex ? 'not-done' : 'empty',
-        isTogglable: i <= todayIndex && !current.isBefore(created_at, 'day')
-      }
-    })
-
-    return res.status(200).json({ days: week })
-  } catch (err) {
-    logger.error("Error :", err)
-    return res.sendStatus(500)
-  } finally {
-    client.release()
-  }
-})
-
 router.get('/popup', authenticateToken, async (req, res) => {
   const user = req.user
 
@@ -122,7 +28,7 @@ router.get('/popup', authenticateToken, async (req, res) => {
         EXTRACT(ISODOW FROM measured_at AT TIME ZONE 'Europe/Paris') AS dow,
         COUNT(*) AS count
        FROM popups 
-       WHERE user_id = $1 
+       WHERE user_id = $1
          AND measured_at >= date_trunc('week', (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris'))
          AND measured_at < date_trunc('week', (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')) + INTERVAL '1 week'
        GROUP BY dow`,

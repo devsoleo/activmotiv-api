@@ -33,7 +33,7 @@ CREATE TABLE popups (
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
-CREATE TABLE questionnaires (
+CREATE TABLE forms (
     id SERIAL PRIMARY KEY NOT NULL,
     user_id INTEGER NOT NULL,
     label varchar(20) NOT NULL,

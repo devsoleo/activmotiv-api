@@ -6,6 +6,7 @@ import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc.js'
 import timezone from 'dayjs/plugin/timezone.js'
 import isoWeek from 'dayjs/plugin/isoWeek.js'
+import between from 'dayjs/plugin/isBetween.js'
 import admin from 'firebase-admin'
 
 import logger from '@/logger/index.js'
@@ -15,12 +16,12 @@ import adminRoutes from '@/routes/admin/index.js'
 import authRoutes from '@/routes/auth.js'
 import analyticsRoutes from '@/routes/analytics.js'
 import telemetryRoutes from '@/routes/telemetry.js'
-import questionnairesRoutes from '@/routes/questionnaires.js'
+import formsRoutes from '@/routes/forms.js'
 import samRoutes from '@/routes/sam.js'
 import notificationsRoutes from '@/routes/notifications.js'
 import popupsRoutes from '@/routes/popups.js'
 import remindersRoutes from '@/routes/reminders.js'
-import sensorRoutes from '@/routes/sensor.js'
+import sensorsRoutes from '@/routes/sensors.js'
 import packageJson from '../package.json' with { type: 'json' }
 import { runCrons } from '@/crons/index.js'
 
@@ -34,6 +35,7 @@ const APP_VERSION = packageJson.version
 dayjs.extend(utc)
 dayjs.extend(timezone)
 dayjs.extend(isoWeek)
+dayjs.extend(between);
 dayjs.tz.setDefault('Europe/Paris')
 
 await pool.migrateDatabase()
@@ -77,12 +79,12 @@ app.get('/csrf-token', (req, res) => {
 app.use('/auth', authRoutes)
 app.use('/analytics', analyticsRoutes)
 app.use('/telemetry', telemetryRoutes)
-app.use('/questionnaires', questionnairesRoutes)
+app.use('/forms', formsRoutes)
 app.use('/sam', samRoutes)
 app.use('/notifications', notificationsRoutes)
 app.use('/popups', popupsRoutes)
 app.use('/reminders', remindersRoutes)
-app.use('/sensor', sensorRoutes)
+app.use('/sensors', sensorsRoutes)
 app.use('/admin', adminRoutes)
 
 app.listen(PORT, () => {

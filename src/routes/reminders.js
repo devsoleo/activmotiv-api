@@ -6,7 +6,7 @@ import { authenticateToken } from '@/middlewares/auth.js'
 const router = express.Router()
 
 const DAYS_OF_WEEK = new Set(['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'])
-const REMINDER_TYPES = ['SENSOR', 'QUESTIONNAIRE']
+const REMINDER_TYPES = ['SENSOR', 'FORM']
 
 const DEFAULT_REMINDERS = {
   SENSOR: {
@@ -18,7 +18,7 @@ const DEFAULT_REMINDERS = {
     SAT: '08:00',
     SUN: '08:00',
   },
-  QUESTIONNAIRE: {
+  FORM: {
     MON: '08:00',
     TUE: '08:00',
     WED: '08:00',
@@ -59,7 +59,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
     const responseData = {
       SENSOR: { ...DEFAULT_REMINDERS.SENSOR },
-      QUESTIONNAIRE: { ...DEFAULT_REMINDERS.QUESTIONNAIRE },
+      FORM: { ...DEFAULT_REMINDERS.FORM },
     }
 
     for (const row of result.rows) {
@@ -67,6 +67,8 @@ router.get('/', authenticateToken, async (req, res) => {
         responseData[row.label][row.day_of_week] = row.reminder_time
       }
     }
+
+    console.log(responseData)
 
     return res.status(200).json(responseData)
   } catch (err) {
@@ -128,7 +130,7 @@ router.put('/', authenticateToken, async (req, res) => {
 
     const responseData = {
       SENSOR: { ...DEFAULT_REMINDERS.SENSOR },
-      QUESTIONNAIRE: { ...DEFAULT_REMINDERS.QUESTIONNAIRE },
+      FORM: { ...DEFAULT_REMINDERS.FORM },
     }
 
     for (const row of result.rows) {
