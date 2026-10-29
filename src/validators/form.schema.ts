@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 export const formResultItemSchema = z.object({
+    uid: z.string().length(3),
     question: z.string(),
     answer: z.any()
 })

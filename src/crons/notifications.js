@@ -46,7 +46,7 @@ const sendFcmNotification = async (client, reminder, templateKey, type, url) => 
 
   try {
     await getMessaging().send(message)
-    logger.info(`Notification ${templisUserInFormPhaseateKey} envoyée au user ${reminder.user_id}`)
+    logger.info(`Notification envoyée au user ${reminder.user_id}`)
   } catch (error) {
     if (
       error.code === 'messaging/registration-token-not-registered' ||

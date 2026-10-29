@@ -85,15 +85,6 @@ CREATE TABLE notifications_token (
     CONSTRAINT fk_device FOREIGN KEY (device_id) REFERENCES devices (id) ON DELETE CASCADE
 );
 
-CREATE TABLE notifications (
-    id SERIAL PRIMARY KEY NOT NULL,
-    device_id INTEGER NOT NULL,
-    template varchar(20) NOT NULL,
-    status varchar(10) DEFAULT 'pending',
-    scheduled_at TIMESTAMPTZ,
-    CONSTRAINT fk_device FOREIGN KEY (device_id) REFERENCES devices (id) ON DELETE CASCADE
-);
-
 CREATE TABLE reminders (
     id SERIAL PRIMARY KEY NOT NULL,
     user_id INTEGER NOT NULL,
@@ -116,6 +107,17 @@ CREATE TABLE sensor (
     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
     CONSTRAINT uq_sensor_user_day UNIQUE (user_id, day)
 );
+
+CREATE TABLE sessions (
+    id SERIAL PRIMARY KEY NOT NULL,
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    token VARCHAR(64) UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX idx_sessions_token ON sessions (token);
+CREATE INDEX idx_sessions_user_id ON sessions (user_id);
 
 -- adminacc / adminacc
 INSERT INTO users (uid, password, team) VALUES ('adminacc', '$2b$12$B3QAODM2r6RRFkTBf17Pv.rgXyvuehNI/6cKPYwPGoCP0eU1BcvpW', 0);

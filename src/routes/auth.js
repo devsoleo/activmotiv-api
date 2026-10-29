@@ -1,6 +1,6 @@
 import express from 'express'
 import bcrypt from 'bcrypt'
-import jwt from 'jsonwebtoken'
+import crypto from 'node:crypto'
 
 import logger from '@/logger/index.js'
 import pool from '@/database/postgresql/index.js'
@@ -104,14 +104,10 @@ router.post('/login', async (req, res) => {
       return res.sendStatus(401)
     }
 
-    const payload = {
-      id: u.id,
-      uid: u.uid,
-      team: u.team,
-      created_at: u.created_at
-    }
+    const accessToken = crypto.randomBytes(32).toString('hex')
+    const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
 
-    const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1y' })
+    await client.query('INSERT INTO sessions (user_id, token, expires_at) VALUES ($1, $2, $3)', [u.id, accessToken, expiresAt])
 
     logger.info({ message: "Login successful", uid: u.uid })
 
@@ -165,6 +161,21 @@ router.get('/me', authenticateToken, async (req, res) => {
     return res.sendStatus(500)
   } finally {
     client.release()
+  }
+})
+
+router.post('/logout', authenticateToken, async (req, res) => {
+  const authHeader = req.headers['authorization']
+  const token = authHeader?.split(' ')[1]
+
+  if (!token) return res.sendStatus(400)
+
+  try {
+    await pool.query('DELETE FROM sessions WHERE token = $1', [token])
+    return res.sendStatus(200)
+  } catch (err) {
+    logger.error("Error during logout:", err)
+    return res.sendStatus(500)
   }
 })
 

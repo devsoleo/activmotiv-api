@@ -1,5 +1,5 @@
 import express from 'express'
-import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
 import bcrypt from 'bcrypt'
 
 import logger from '@/logger/index.js'
@@ -37,14 +37,10 @@ router.post('/login', async (req, res) => {
       return res.sendStatus(401)
     }
 
-    const payload = {
-      id: u.id,
-      uid: u.uid,
-      team: 0,
-      admin: true
-    }
+    const accessToken = crypto.randomBytes(32).toString('hex')
+    const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
 
-    const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1y' })
+    await client.query('INSERT INTO sessions (user_id, token, expires_at) VALUES ($1, $2, $3)', [u.id, accessToken, expiresAt])
 
     logger.info({ message: "Login successful", uid: u.uid })
 

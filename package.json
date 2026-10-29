@@ -19,7 +19,6 @@
     "express": "^5.1.0",
     "firebase-admin": "^13.6.0",
     "helmet": "^8.1.0",
-    "jsonwebtoken": "^9.0.2",
     "node-cron": "^4.2.1",
     "node-pg-migrate": "^7.9.1",
     "nodemailer": "^7.0.3",

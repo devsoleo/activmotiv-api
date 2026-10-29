@@ -1,7 +1,7 @@
 import cron from 'node-cron'
 
 import { handleNotifications } from '@/crons/notifications.js'
-import { handleOpeningAlerts } from '@/crons/openingAlerts.js'
+import { handleOpeningAlerts } from '@/crons/alerts.js'
 
 export const runCrons = async () => {
   handleNotifications()

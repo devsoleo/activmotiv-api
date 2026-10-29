@@ -55,6 +55,30 @@ router.get('/stepper', authenticateToken, async (req, res) => {
   }
 })
 
+// Permet à l'utilisateur de valider manuellement le port du capteur
+// Utile lorsqu'il reçoit une notification de rappel
+// Ne fonctionne que pour le jour même
+router.post('/validate/today', authenticateToken, async (req, res) => {
+  const user = req.user
+
+  try {
+    await pool.query(
+      `INSERT INTO sensor (user_id, day)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id, day) DO NOTHING`,
+      [user.id,  dayjs().tz().format('YYYY-MM-DD')]
+    )
+
+    return res.sendStatus(200)
+  } catch (err) {
+    logger.error("Error :", err)
+    return res.sendStatus(500)
+  }
+})
+
+// Permet à l'utilisateur de valider/d'annuler le port du capteur
+// Utile pour le stepper
+// Fonctionne pour n'importe quel jour de la semaine calendaire (Lundi à Dimanche)
 router.post('/toggle', authenticateToken, async (req, res) => {
   const user = req.user
   const { weekDayIndex } = req.body
@@ -89,7 +113,7 @@ router.get('/today', authenticateToken, async (req, res) => {
 
   try {
     const result = await client.query(
-      `SELECT COUNT(*) FROM sensor WHERE user_id = $1 AND confirmed IS TRUE AND updated_at >= (CURRENT_DATE AT TIME ZONE 'Europe/Paris')`,
+      `SELECT COUNT(*) FROM sensor WHERE user_id = $1 AND updated_at >= (CURRENT_DATE AT TIME ZONE 'Europe/Paris')`,
       [user.id]
     )
 

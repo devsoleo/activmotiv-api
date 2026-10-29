@@ -14,7 +14,7 @@ const router = express.Router()
 const processForm = async (client, user, label, results, timestamp) => {
   const filename = `${label}-${user.uid}-${dayjs(timestamp).format('DD-MM-YYYY')}.csv`
 
-  const headers = results.map(r => r.question)
+  const headers = results.map(r => r.uid)
   const answers = results.map(r => Array.isArray(r.answer) ? r.answer.join(',') : r.answer)
 
   const content_header = `uid;date;${headers.join(';')}`
@@ -32,22 +32,10 @@ const processForm = async (client, user, label, results, timestamp) => {
     dayjs(timestamp).toISOString()
   ])
 
-  await client.query(`
-    INSERT INTO notifications (device_id, template, scheduled_at)
-    SELECT id, $1, $2
-    FROM devices
-    WHERE user_id = $3 AND is_active = true
-    LIMIT 1
-  `, [
-    label, 
-    dayjs(timestamp).add(process.env.NOTIFICATION_DAYS_INTERVAL, 'day').toISOString(), 
-    user.id
-  ])
-
-  sendMail(process.env.SMTP_TO, `Questionnaire ${label} de ${user.uid}`, `Voir ${filename} en pièce-jointe.`, [
+  await sendMail(process.env.SMTP_TO, `Questionnaire ${label} de ${user.uid}`, `Voir ${filename} en pièce-jointe.`, [
     {
       filename,
-      content: content_header + '\n' + content_results
+      content: "\uFEFF" + content_header + '\n' + content_results
     }
   ])
 }
@@ -183,8 +171,6 @@ router.get('/stepper', authenticateToken, async (req, res) => {
       if (dayjs().tz().hour() >= 13 && days[userPosition]?.status === 'empty') {
         days[userPosition].status = 'not-done'
       }
-
-      console.log(days)
 
       return res.status(200).json({ days })
     }
