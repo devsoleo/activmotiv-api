@@ -131,12 +131,37 @@ router.get('/onboarding-status', authenticateToken, async (req, res) => {
 
   try {
     const q1 = await client.query('SELECT COUNT(*) FROM sam WHERE user_id = $1', [user.id])
-    const count = Number.parseInt(q1.rows[0].count, 20)
+    const count = Number.parseInt(q1.rows[0].count)
 
     // If count > 0, they have already rated their images (onboarded)
     return res.status(200).json({ onboarded: count > 0 })
   } catch (err) {
     logger.error("Error :", err)
+    return res.sendStatus(500)
+  } finally {
+    client.release()
+  }
+})
+
+router.get('/me', authenticateToken, async (req, res) => {
+  const user = req.user
+
+  const client = await pool.getClient()
+
+  try {
+    const q1 = await client.query('SELECT id, uid, team FROM users WHERE id = $1', [user.id])
+    const u = q1.rows[0]
+
+    if (!u) return res.sendStatus(404)
+
+    return res.status(200).json({
+      id: u.id,
+      uid: u.uid,
+      team: u.team,
+      isAdmin: u.team === 0
+    })
+  } catch (err) {
+    logger.error("Error fetching user profile:", err)
     return res.sendStatus(500)
   } finally {
     client.release()

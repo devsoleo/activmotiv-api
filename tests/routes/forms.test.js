@@ -27,53 +27,8 @@ describe('GET /forms/status', () => {
     vi.useRealTimers()
   })
 
-  it('retourne display: false si l\'heure est inférieure à 5h', async () => {
-    vi.setSystemTime(new Date('2026-01-01T04:00:00+02:00')) // 01/01/26 à 04h00
-
-    const userHeader = JSON.stringify({ id: 1, team: 1 })
-    const res = await request(app)
-      .get('/forms/status')
-      .set('x-test-user', userHeader)
-
-    expect(res.status).toBe(200)
-    expect(res.body).toEqual({ display: false })
-    expect(pool.getClient).not.toHaveBeenCalled()
-  })
-
-  it('retourne display: false si l\'heure est supérieur à 13h', async () => {
-    vi.setSystemTime(new Date('2026-01-01T14:00:00+02:00')) // 01/01/26 à 14h00
-
-    const userHeader = JSON.stringify({ id: 1, team: 1 })
-    const res = await request(app)
-      .get('/forms/status')
-      .set('x-test-user', userHeader)
-
-    expect(res.status).toBe(200)
-    expect(res.body).toEqual({ display: false })
-    expect(pool.getClient).not.toHaveBeenCalled()
-  })
-
-  it('retourne display: false si l\'utilisateur a déjà rempli son questionnaire aujourd\'hui', async () => {
-    vi.setSystemTime(new Date('2026-01-01T12:00:00+02:00')) // 01/01/26 à 12h00
-
-    mockClient.query.mockResolvedValueOnce({ rows: [{ count: '1' }] })
-
-    const userHeader = JSON.stringify({ id: 1, team: 1 })
-    const res = await request(app)
-      .get('/forms/status')
-      .set('x-test-user', userHeader)
-
-    expect(res.status).toBe(200)
-    expect(res.body).toEqual({ display: false })
-    expect(mockClient.query).toHaveBeenCalledWith(
-      expect.stringContaining('SELECT COUNT(*) FROM forms'),
-      [1]
-    )
-    expect(mockClient.release).toHaveBeenCalled()
-  })
-
-  it('retourne display: true si non rempli aujourd\'hui et utilisateur en phase active', async () => {
-    vi.setSystemTime(new Date('2026-01-01T12:00:00+02:00')) // 01/01/26 à 12h00
+  it('retourne les infos de statut pour un utilisateur', async () => {
+    vi.setSystemTime(new Date('2026-01-01T12:00:00+02:00'))
 
     mockClient.query.mockResolvedValueOnce({ rows: [{ count: '0' }] })
     mockClient.query.mockResolvedValueOnce({ rows: [{ team: 1, created_at: '2026-01-01' }] })
@@ -84,14 +39,14 @@ describe('GET /forms/status', () => {
       .set('x-test-user', userHeader)
 
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ display: true })
+    expect(res.body.inPhase).toBe(true)
+    expect(res.body.inTimeWindow).toBe(true)
+    expect(res.body.doneToday).toBe(false)
     expect(mockClient.release).toHaveBeenCalled()
   })
 
   it('contourne les vérifications d\'horaires et de complétion pour la team 0 (admin)', async () => {
-    vi.setSystemTime(new Date('2026-01-01T14:00:00+02:00')) // 01/01/26 à 14h00
-
-    mockClient.query.mockResolvedValueOnce({ rows: [{ team: 0, created_at: '2026-01-01' }] })
+    vi.setSystemTime(new Date('2026-01-01T14:00:00+02:00'))
 
     const userHeader = JSON.stringify({ id: 1, team: 0 })
     const res = await request(app)
@@ -99,7 +54,7 @@ describe('GET /forms/status', () => {
       .set('x-test-user', userHeader)
 
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ display: true })
+    expect(res.body).toEqual({ inPhase: true, nextDate: null })
   })
 
   it('renvoie un statut 500 en cas d\'erreur de base de données', async () => {

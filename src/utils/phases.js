@@ -63,7 +63,7 @@ export function getUserFormPhase(user, now = dayjs().tz()) {
 
 export const isUserInFormPhase = (user) => getUserFormPhase(user) !== -1
 
-export function getUserFormPhasePosition(user) {
+export function getUserFormPhasePosition(user, now = dayjs().tz()) {
   const userPhase = getUserFormPhase(user)
 
   if (userPhase == -1) return -1
@@ -73,27 +73,49 @@ export function getUserFormPhasePosition(user) {
 
   const start_week = FORMS_PHASES_BY_TEAM[team][userPhase]
   const start = t0.add(start_week * 7, 'day')
-  const end = start.add(7, 'day')
 
-  return 7 - end.diff(dayjs().tz(), 'day')
+  return now.diff(start, 'day') // De 0 à 6
 }
 
-export const nextUserFormPhase = (user) => {
+export const nextUserFormPhase = (user, now = dayjs().tz()) => {
   if (user?.team == null || user?.created_at == null) return null
 
   const { team, created_at } = user
 
   if (team <= 0) return null
 
-  const now = dayjs().tz()
   const t0 = dayjs(created_at).tz()
 
   for (const start_week of FORMS_PHASES_BY_TEAM[team]) {
     const start = t0.add(start_week * 7, 'day')
 
-    if (now.isBefore(start)) return start.toISOString()
+    if (now.isBefore(start)) return start_week
   }
 
   return null
 }
 
+
+// si not inPhase
+// => debut prochaine phase
+// sinon
+// => min(fin de phase, demain)
+export const nextFormDate = (user, now = dayjs().tz()) => {
+  if (user?.team == null || user?.created_at == null) return null
+
+  const { team, created_at } = user
+
+  if (team <= 0) return null
+
+  const t0 = dayjs(created_at).tz()
+
+  const phase = getUserFormPhase(user, now)
+
+  if (phase == -1) return t0.add(nextUserFormPhase(user, now) * 7, 'days')
+
+  const start = t0.add(FORMS_PHASES_BY_TEAM[team][phase] * 7, 'days')
+  const end = start.add(7, 'days')
+
+  const tomorrow = now.add(1, 'day').startOf('day')
+  return tomorrow.isBefore(end) ? tomorrow : end
+}

@@ -69,7 +69,8 @@ router.post('/toggle', authenticateToken, async (req, res) => {
         DELETE FROM sensor WHERE user_id = $1 AND day = $2 RETURNING 1
       )
       INSERT INTO sensor (user_id, day)
-      SELECT $1, $2 WHERE NOT EXISTS (SELECT 1 FROM deleted)`,
+      SELECT $1, $2 WHERE NOT EXISTS (SELECT 1 FROM deleted)
+      ON CONFLICT (user_id, day) DO NOTHING`,
       [user.id, formattedDate]
     )
 

@@ -7,8 +7,7 @@ import { sendMail } from '@/mailer/index.js'
 
 import { authenticateToken } from '@/middlewares/auth.js'
 import { formSchema } from '@/validators/form.schema.js'
-import { isUserInFormPhase, getUserFormPhasePosition } from '@/utils/phases.js'
-import { cpSync } from 'node:fs'
+import { isUserInFormPhase, getUserFormPhasePosition, nextFormDate } from '@/utils/phases.js'
 
 const router = express.Router()
 
@@ -69,10 +68,10 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/status', authenticateToken, async (req, res) => {
   const isAdmin = req.user.team === 0
 
-  if (isAdmin) return res.status(200).json({ inPhase: true })
+  if (isAdmin) return res.status(200).json({ inPhase: true, nextDate: null })
 
   const currentHour = dayjs().tz().hour()
-  const inTimeWindow = currentHour >= 5 && currentHour <= 22
+  const inTimeWindow = currentHour >= 5 && currentHour <= 13
 
   const client = await pool.getClient()
 
@@ -87,8 +86,10 @@ router.get('/status', authenticateToken, async (req, res) => {
     const user = result.rows[0]
 
     const inPhase = (isUserInFormPhase(user) || user?.team == 0)
-    console.log({ inPhase, inTimeWindow, doneToday })
-    return res.status(200).json({ inPhase, inTimeWindow, doneToday })
+    const nextDateObj = nextFormDate(user)
+    const nextDate = nextDateObj ? nextDateObj.toISOString() : null
+
+    return res.status(200).json({ inPhase, inTimeWindow, doneToday, nextDate })
   } catch (err) {
     logger.error("Error :", err)
     return res.sendStatus(500)
@@ -133,7 +134,7 @@ router.get('/stepper', authenticateToken, async (req, res) => {
     const u = r1.rows[0]
 
     if (isUserInFormPhase(u)) {
-      const userPosition = getUserFormPhasePosition(u) - 1
+      const userPosition = getUserFormPhasePosition(u)
 
       const labels = ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7']
 
@@ -161,17 +162,29 @@ router.get('/stepper', authenticateToken, async (req, res) => {
       // Set des index de jours ayant au moins une complétion
       const completedIdx = new Set(r2.rows.map(r => r.day_index))
 
-      const days = enrichedDates.map((d, i) => ({
-        ...d,
-        status:
-          windowStart.add(i, 'day').isAfter(today, 'day') || i === userPosition
-            ? completedIdx.has(i) ? 'done' : 'empty'
-            : completedIdx.has(i) ? 'done' : 'not-done',
-      }))
+      const days = []
 
-      if (dayjs().tz().hour() >= 13 && days[userPosition].status === 'empty') {
+      for (let i = 0; i < enrichedDates.length; i++) {
+        const date = enrichedDates[i]
+
+        if (completedIdx.has(i)) {
+          days.push({ ...date, status: 'done' })
+          continue
+        }
+
+        const isUserPosition = i === userPosition
+        const isAfterToday = windowStart.add(i, 'day').isAfter(today, 'day')
+
+        const isFutureOrCurrent = isUserPosition || isAfterToday
+
+        days.push({ ...date, status: isFutureOrCurrent ? 'empty' : 'not-done' })
+      }
+
+      if (dayjs().tz().hour() >= 13 && days[userPosition]?.status === 'empty') {
         days[userPosition].status = 'not-done'
       }
+
+      console.log(days)
 
       return res.status(200).json({ days })
     }
