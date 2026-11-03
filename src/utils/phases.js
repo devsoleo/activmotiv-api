@@ -40,7 +40,7 @@ export function getUserStudyPhase(user, now = dayjs().tz()) {
   return phase
 }
 
-export const isUserInStudyPhase = (user) => getUserStudyPhase(user) !== -1
+export const isUserInStudyPhase = (user, now = dayjs().tz()) => getUserStudyPhase(user, now) !== -1
 
 export function getUserFormPhase(user, now = dayjs().tz()) {
   if (user?.team == null || user?.created_at == null) return -1
@@ -61,10 +61,10 @@ export function getUserFormPhase(user, now = dayjs().tz()) {
   return phase
 }
 
-export const isUserInFormPhase = (user) => getUserFormPhase(user) !== -1
+export const isUserInFormPhase = (user, now = dayjs().tz()) => getUserFormPhase(user, now) !== -1
 
 export function getUserFormPhasePosition(user, now = dayjs().tz()) {
-  const userPhase = getUserFormPhase(user)
+  const userPhase = getUserFormPhase(user, now)
 
   if (userPhase == -1) return -1
 
@@ -116,6 +116,10 @@ export const nextFormDate = (user, now = dayjs().tz()) => {
   const start = t0.add(FORMS_PHASES_BY_TEAM[team][phase] * 7, 'days')
   const end = start.add(7, 'days')
 
-  const tomorrow = now.add(1, 'day').startOf('day')
-  return tomorrow.isBefore(end) ? tomorrow : end
+  // Avant 13h : date du jour. Sinon : lendemain.
+  const candidate = now.hour() < 13
+    ? now.startOf('day')
+    : now.add(1, 'day').startOf('day')
+
+  return candidate.isBefore(end) ? candidate : end
 }

@@ -3,7 +3,7 @@ import { getMessaging } from 'firebase-admin/messaging'
 
 import pool from '@/database/postgresql/index.js'
 import logger from '@/logger/index.js'
-import { NOTIFICATION_TEMPLATES } from '@/constants/notifications.js'
+import { NOTIFICATION_TEMPLATES } from '@/notifications/templates.js'
 
 const router = express.Router()
 

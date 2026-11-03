@@ -52,7 +52,7 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     const result = await client.query(
       `SELECT label, day_of_week, TO_CHAR(reminder_time, 'HH24:MI') as reminder_time
-       FROM reminders 
+       FROM reminders
        WHERE user_id = $1`,
       [user.id]
     )

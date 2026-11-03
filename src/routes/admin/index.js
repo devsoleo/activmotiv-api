@@ -6,6 +6,8 @@ import authRoutes from '@/routes/admin/routes/auth.js'
 import usersRoutes from '@/routes/admin/routes/users.js'
 import notificationsRoutes from '@/routes/admin/routes/notifications.js'
 import analyticsRoutes from '@/routes/admin/routes/analytics.js'
+import alertsRoutes from '@/routes/admin/routes/alerts.js'
+import formsRoutes from '@/routes/admin/routes/forms.js'
 
 const router = express.Router()
 
@@ -17,5 +19,7 @@ router.use(isAdmin)
 router.use('/users', usersRoutes)
 router.use('/notifications', notificationsRoutes)
 router.use('/analytics', analyticsRoutes)
+router.use('/alerts', alertsRoutes)
+router.use('/forms', formsRoutes)
 
 export default router

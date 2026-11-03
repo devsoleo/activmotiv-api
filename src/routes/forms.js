@@ -11,35 +11,6 @@ import { isUserInFormPhase, getUserFormPhasePosition, nextFormDate } from '@/uti
 
 const router = express.Router()
 
-const processForm = async (client, user, label, results, timestamp) => {
-  const filename = `${label}-${user.uid}-${dayjs(timestamp).format('DD-MM-YYYY')}.csv`
-
-  const headers = results.map(r => r.uid)
-  const answers = results.map(r => Array.isArray(r.answer) ? r.answer.join(',') : r.answer)
-
-  const content_header = `uid;date;${headers.join(';')}`
-  const content_results = `${user.uid};${dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')};${answers.join(';')}`
-
-  const formData = {
-    results,
-    timestamp
-  }
-
-  await client.query(`INSERT INTO forms (user_id, label, data, completed_at) VALUES ($1, $2, $3, $4)`, [
-    user.id,
-    label,
-    JSON.stringify(formData),
-    dayjs(timestamp).toISOString()
-  ])
-
-  await sendMail(process.env.SMTP_TO, `Questionnaire ${label} de ${user.uid}`, `Voir ${filename} en pièce-jointe.`, [
-    {
-      filename,
-      content: "\uFEFF" + content_header + '\n' + content_results
-    }
-  ])
-}
-
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -59,7 +30,7 @@ router.get('/status', authenticateToken, async (req, res) => {
   if (isAdmin) return res.status(200).json({ inPhase: true, nextDate: null })
 
   const currentHour = dayjs().tz().hour()
-  const inTimeWindow = currentHour >= 5 && currentHour <= 13
+  const inTimeWindow = currentHour >= 5 && currentHour < 13
 
   const client = await pool.getClient()
 
@@ -86,6 +57,21 @@ router.get('/status', authenticateToken, async (req, res) => {
   }
 })
 
+const generateCSV = (filename, results, timestamp) => {
+  const headers = results.map(r => r.uid)
+  const answers = results.map(r => Array.isArray(r.answer) ? r.answer.join(',') : r.answer)
+
+  const content_header = `uid;date;${headers.join(';')}`
+  const content_results = `${user.uid};${dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')};${answers.join(';')}`
+
+  return [
+      {
+        filename,
+        content: "\uFEFF" + content_header + '\n' + content_results
+      }
+    ]
+}
+
 router.post('/:label', authenticateToken, async (req, res) => {
   const { label } = req.params
 
@@ -98,7 +84,18 @@ router.post('/:label', authenticateToken, async (req, res) => {
   const client = await pool.getClient()
 
   try {
-    await processForm(client, req.user, label, data.results, data.timestamp)
+    const user = req.user
+
+    await client.query(`INSERT INTO forms (user_id, label, data, completed_at) VALUES ($1, $2, $3, $4) RETURNING id`, [
+      user.id,
+      label,
+      JSON.stringify({ results: data.results, timestamp: data.timestamp }),
+      dayjs(data.timestamp).tz().toISOString()
+    ])
+
+    const filename = `${label}-${user.uid}-${dayjs(data.timestamp).format('DD-MM-YYYY')}.csv`
+
+    await sendMail(process.env.SMTP_TO, `Questionnaire ${label} de ${user.uid}`, `Voir ${filename} en pièce-jointe.`, generateCSV(filename, ))
 
     logger.info({ message: "Questionnaire completed" })
 

@@ -1,6 +1,6 @@
 {
   "name": "activmotiv-api",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "",
   "author": "DevSoleo",
   "type": "module",
@@ -12,7 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dayjs": "^1.11.13",
     "dotenv": "^16.5.0",
@@ -21,7 +21,7 @@
     "helmet": "^8.1.0",
     "node-cron": "^4.2.1",
     "node-pg-migrate": "^7.9.1",
-    "nodemailer": "^7.0.3",
+    "nodemailer": "^10.3.1",
     "pg": "^8.15.6",
     "tsc-alias": "^1.8.16",
     "winston": "^3.17.0",
@@ -35,5 +35,12 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "glob": "^14.0.3",
+    "minimatch": "^11.0.4",
+    "rimraf": "^6.1.4",
+    "tar": "^7.5.22",
+    "uuid": "^11.1.1"
   }
 }

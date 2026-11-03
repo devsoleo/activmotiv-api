@@ -1,12 +1,15 @@
 import cron from 'node-cron'
 
-import { handleNotifications } from '@/crons/notifications.js'
+import { handleFormNotifications, handleFormRecallNotifications } from '@/crons/notifications.js'
 import { handleOpeningAlerts } from '@/crons/alerts.js'
 
 export const runCrons = async () => {
-  handleNotifications()
-  handleOpeningAlerts()
+  await handleFormNotifications()
+  await handleFormRecallNotifications()
+  await handleOpeningAlerts()
 
-  cron.schedule('* * * * *', handleNotifications)
+  cron.schedule('* * * * *', handleFormNotifications)
+  cron.schedule('* * * * *', handleFormRecallNotifications)
+
   cron.schedule('5 0 * * *', handleOpeningAlerts)
 }
