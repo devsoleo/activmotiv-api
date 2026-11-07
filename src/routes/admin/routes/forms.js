@@ -4,10 +4,6 @@ import pool from '@/database/postgresql/index.js'
 
 const router = express.Router()
 
-router.get('/csv', async (req, res) => {
-    return res.status(200).json({ forms: {} })
-})
-
 router.get('/', async (req, res) => {
   const client = await pool.getClient()
 
@@ -25,10 +21,10 @@ router.get('/', async (req, res) => {
        ORDER BY f.completed_at DESC`
     )
 
-    return res.status(200).json({ questionnaires: rows })
+    return res.status(200).json({ forms: rows })
   } catch (err) {
-    logger.error("Error fetching questionnaires:", err)
-    return res.status(500).json({ error: "Erreur lors de la récupération des questionnaires" })
+    logger.error("Error fetching forms:", err)
+    return res.sendStatus(500)
   } finally {
     client.release()
   }

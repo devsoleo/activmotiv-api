@@ -20,8 +20,8 @@ router.get('/', async (req, res) => {
     const alerts = []
     const now = dayjs().tz()
 
-    // Check last 30 days
-    for (let i = 1; i <= 30; i++) {
+    // Check last 30 days (0 = today, 1..30 = past days)
+    for (let i = 0; i <= 30; i++) {
       const targetDay = now.subtract(i, 'day')
       const dayStart = targetDay.startOf('day').toISOString()
       const dayEnd = targetDay.endOf('day').toISOString()
@@ -31,45 +31,55 @@ router.get('/', async (req, res) => {
       for (const user of users) {
         if (!user.created_at) continue
 
+        const userCreationStart = dayjs(user.created_at).tz().startOf('day')
+        if (targetDay.startOf('day').isBefore(userCreationStart)) {
+          continue
+        }
+
         // Check if user was in form/popup phase
         if (isUserInFormPhase(user, targetDay)) {
-          // 1. Popup openings count
-          const { rows: popupRows } = await client.query(
-            `SELECT COUNT(*) AS count 
-             FROM popups 
-             WHERE user_id = $1 AND measured_at >= $2 AND measured_at <= $3`,
-            [user.id, dayStart, dayEnd]
-          )
+          // Questionnaire alert condition matching front-end stepper:
+          // Past days (i > 0) OR Today (i === 0) after 13:00 (hour >= 13)
+          if (i > 0 || now.hour() >= 13) {
+            const { rows: formRows } = await client.query(
+              `SELECT COUNT(*) AS count 
+               FROM forms 
+               WHERE user_id = $1 AND completed_at >= $2 AND completed_at <= $3`,
+              [user.id, dayStart, dayEnd]
+            )
 
-          if (Number.parseInt(popupRows[0].count, 10) === 0) {
-            alerts.push({
-              id: `${user.id}-inactivity-${dayDateStr}`,
-              uid: user.uid,
-              type: "Inactivité (0 ouverture)",
-              date: dateFormatted
-            })
+            if (Number.parseInt(formRows[0].count, 10) === 0) {
+              alerts.push({
+                id: `${user.id}-form-${dayDateStr}`,
+                uid: user.uid,
+                type: "Questionnaire non rempli",
+                date: dateFormatted
+              })
+            }
           }
 
-          // 2. Questionnaire completed count
-          const { rows: formRows } = await client.query(
-            `SELECT COUNT(*) AS count 
-             FROM forms 
-             WHERE user_id = $1 AND completed_at >= $2 AND completed_at <= $3`,
-            [user.id, dayStart, dayEnd]
-          )
+          // 1. Popup openings count (past days only)
+          if (i > 0) {
+            const { rows: popupRows } = await client.query(
+              `SELECT COUNT(*) AS count 
+               FROM popups 
+               WHERE user_id = $1 AND measured_at >= $2 AND measured_at <= $3`,
+              [user.id, dayStart, dayEnd]
+            )
 
-          if (Number.parseInt(formRows[0].count, 10) === 0) {
-            alerts.push({
-              id: `${user.id}-form-${dayDateStr}`,
-              uid: user.uid,
-              type: "Questionnaire non rempli",
-              date: dateFormatted
-            })
+            if (Number.parseInt(popupRows[0].count, 10) === 0) {
+              alerts.push({
+                id: `${user.id}-inactivity-${dayDateStr}`,
+                uid: user.uid,
+                type: "Inactivité (0 ouverture)",
+                date: dateFormatted
+              })
+            }
           }
         }
 
-        // 3. Sensor check during study phase
-        if (isUserInStudyPhase(user, targetDay)) {
+        // 3. Sensor check during study phase (past days only)
+        if (i > 0 && isUserInStudyPhase(user, targetDay)) {
           const { rows: sensorRows } = await client.query(
             `SELECT COUNT(*) AS count 
              FROM sensor 

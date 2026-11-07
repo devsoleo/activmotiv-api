@@ -1,5 +1,5 @@
 import express from 'express'
-import crypto from 'crypto'
+import crypto from 'node:crypto'
 import bcrypt from 'bcrypt'
 
 import logger from '@/logger/index.js'

@@ -114,16 +114,16 @@ router.put('/:id/team', isAdmin, async (req, res) => {
   }
 })
 
-// GET /admin/users/:id/end-date - Get calculated end date for a user
-router.get('/:id/end-date', isAdmin, async (req, res) => {
-  const { id } = req.params
+// GET /admin/users/:uid/end-date - Get calculated end date for a user
+router.get('/:uid/end-date', isAdmin, async (req, res) => {
+  const { uid } = req.params
 
   const client = await pool.getClient()
 
   try {
     const result = await client.query(
-      'SELECT id, team, created_at FROM users WHERE id = $1',
-      [id]
+      'SELECT id, team, created_at FROM users WHERE uid = $1',
+      [uid]
     )
 
     if (result.rows.length === 0) {
@@ -131,13 +131,14 @@ router.get('/:id/end-date', isAdmin, async (req, res) => {
     }
 
     const user = result.rows[0]
-    const team = user.team ? Number.parseInt(user.team) : 1
+
+    if (user.team <= 0) return res.status(200).json({ date: null })
 
     const endDate = user.created_at
-      ? dayjs(user.created_at).tz().add(7 * 7 + ((team - 1) * 7), 'day').toISOString()
+      ? dayjs(user.created_at).tz().add(7 * 7 + ((user.team - 1) * 7), 'day').toISOString()
       : null
 
-    return res.status(200).json({ endDate })
+    return res.status(200).json({ date: endDate })
   } catch (err) {
     logger.error("Error calculating user end date:", err)
     return res.sendStatus(500)
