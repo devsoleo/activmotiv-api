@@ -1,12 +1,6 @@
 import dayjs from 'dayjs'
 
-export const BASELINES_DURATIONS_BY_TEAM = {
-  1: 1,
-  2: 2,
-  3: 3
-}
-
-export const STUDY_PHASES_BY_TEAM = {
+const STUDY_PHASES_BY_TEAM = {
   // TEAM ID: [ 0: A, 1: B, 2: A' ] else -1
   1: [ 0, 1, 6 ],
   2: [ 0, 2, 7 ],
@@ -122,4 +116,13 @@ export const nextFormDate = (user, now = dayjs().tz()) => {
     : now.add(1, 'day').startOf('day')
 
   return candidate.isBefore(end) ? candidate : end
+}
+
+export const computeEndDate = (user) => {
+  if (user.team <= 0 || !user.created_at) return null
+
+  return dayjs(user.created_at)
+    .tz()
+    .add(7 * 7 + (user.team - 1) * 7, 'day')
+    .toISOString()
 }

@@ -24,7 +24,7 @@ router.get('/popup', authenticateToken, async (req, res) => {
 
     // 2. Get daily opening count for the current week (Monday to Sunday)
     const qWeekly = await client.query(
-      `SELECT 
+      `SELECT
         EXTRACT(ISODOW FROM measured_at AT TIME ZONE 'Europe/Paris') AS dow,
         COUNT(*) AS count
        FROM popups 
@@ -36,7 +36,7 @@ router.get('/popup', authenticateToken, async (req, res) => {
     )
 
     const labels = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
-    const opening = labels.map((label, index) => ({
+    const opening = labels.map((label, _) => ({
       label,
       value: 0
     }))

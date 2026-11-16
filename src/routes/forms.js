@@ -62,14 +62,14 @@ const generateCSV = (filename, results, timestamp) => {
   const answers = results.map(r => Array.isArray(r.answer) ? r.answer.join(',') : r.answer)
 
   const content_header = `uid;date;${headers.join(';')}`
-  const content_results = `${user.uid};${dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')};${answers.join(';')}`
+  const content_results = `${r.uid};${dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')};${answers.join(';')}`
 
   return [
-      {
-        filename,
-        content: "\uFEFF" + content_header + '\n' + content_results
-      }
-    ]
+    {
+      filename,
+      content: "\uFEFF" + content_header + '\n' + content_results
+    }
+  ]
 }
 
 router.post('/:label', authenticateToken, async (req, res) => {

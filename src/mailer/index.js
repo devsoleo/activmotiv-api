@@ -15,7 +15,10 @@ const transporter = nodemailer.createTransport({
 })
 
 const sendMail = async (to, subject, html, attachments) => {
-  if (NODE_ENV != 'production') return
+  if (NODE_ENV !== 'production') {
+    logger.info({ message: "Mail skipped in non-production environment", subject, to })
+    return
+  }
 
   await transporter.sendMail({
     from: process.env.SMTP_SENDER,
