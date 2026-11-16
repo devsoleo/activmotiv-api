@@ -60,6 +60,8 @@ const isVersionSupported = (clientVersion, serverVersion) => {
 }
 
 app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') return next()
+
   const from = req.headers["x-forwarded-for"] || req.connection.remoteAddress
   const clientVersion = req.headers['x-client-version']
 

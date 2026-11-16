@@ -7,7 +7,7 @@ CREATE TABLE users (
     password varchar(60),
     team INTEGER DEFAULT 1,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    last_login TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    last_login TIMESTAMPTZ DEFAULT NULL
 );
 
 CREATE TABLE sam (

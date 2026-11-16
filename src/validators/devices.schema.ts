@@ -23,5 +23,3 @@ export const updateDeviceRequestSchema = z.object({
     androidId: z.string().nullable().optional(),
     device: deviceSchema
 })
-
-export type UpdateDeviceRequest = z.infer<typeof updateDeviceRequestSchema>

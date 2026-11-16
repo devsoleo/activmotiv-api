@@ -2,7 +2,7 @@ import express from 'express'
 import dayjs from 'dayjs'
 import logger from '@/logger/index.js'
 import pool from '@/database/postgresql/index.js'
-import { isUserInFormPhase, isUserInStudyPhase } from '@/utils/phases.js'
+import { isUserInFormPhase, isUserInStudyPhase, getUserStudyPhase } from '@/utils/phases.js'
 
 const router = express.Router()
 
@@ -36,7 +36,7 @@ router.get('/', async (req, res) => {
           continue
         }
 
-        // Check if user was in form/popup phase
+        // 1. Questionnaire alerts (only during form phase)
         if (isUserInFormPhase(user, targetDay)) {
           // Questionnaire alert condition matching front-end stepper:
           // Past days (i > 0) OR Today (i === 0) after 13:00 (hour >= 13)
@@ -57,24 +57,24 @@ router.get('/', async (req, res) => {
               })
             }
           }
+        }
 
-          // 1. Popup openings count (past days only)
-          if (i > 0) {
-            const { rows: popupRows } = await client.query(
-              `SELECT COUNT(*) AS count 
-               FROM popups 
-               WHERE user_id = $1 AND measured_at >= $2 AND measured_at <= $3`,
-              [user.id, dayStart, dayEnd]
-            )
+        // 2. Popup openings count (past days only, during popup intervention phase: getUserStudyPhase === 1 or team === 0)
+        if (i > 0 && (getUserStudyPhase(user, targetDay) === 1 || user.team === 0)) {
+          const { rows: popupRows } = await client.query(
+            `SELECT COUNT(*) AS count 
+             FROM popups 
+             WHERE user_id = $1 AND measured_at >= $2 AND measured_at <= $3`,
+            [user.id, dayStart, dayEnd]
+          )
 
-            if (Number.parseInt(popupRows[0].count, 10) === 0) {
-              alerts.push({
-                id: `${user.id}-inactivity-${dayDateStr}`,
-                uid: user.uid,
-                type: "Inactivité (0 ouverture)",
-                date: dateFormatted
-              })
-            }
+          if (Number.parseInt(popupRows[0].count, 10) === 0) {
+            alerts.push({
+              id: `${user.id}-inactivity-${dayDateStr}`,
+              uid: user.uid,
+              type: "Inactivité (0 ouverture)",
+              date: dateFormatted
+            })
           }
         }
 

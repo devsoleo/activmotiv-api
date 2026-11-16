@@ -57,19 +57,24 @@ router.get('/status', authenticateToken, async (req, res) => {
   }
 })
 
-const generateCSV = (filename, results, timestamp) => {
-  const headers = results.map(r => r.uid)
-  const answers = results.map(r => Array.isArray(r.answer) ? r.answer.join(',') : r.answer)
+const escapeCSVField = (val) => {
+  const str = Array.isArray(val) ? val.join(',') : (val !== undefined && val !== null ? String(val) : '')
+  return /[;\n"\r]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str
+}
+
+const generateCSV = (filename, userUid, results = [], timestamp) => {
+  const headers = results.map(r => escapeCSVField(r.uid))
+  const answers = results.map(r => escapeCSVField(r.answer))
 
   const content_header = `uid;date;${headers.join(';')}`
-  const content_results = `${user.uid};${dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')};${answers.join(';')}`
+  const content_results = `${escapeCSVField(userUid)};${dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')};${answers.join(';')}`
 
   return [
-      {
-        filename,
-        content: "\uFEFF" + content_header + '\n' + content_results
-      }
-    ]
+    {
+      filename,
+      content: "\uFEFF" + content_header + '\n' + content_results
+    }
+  ]
 }
 
 router.post('/:label', authenticateToken, async (req, res) => {
@@ -95,7 +100,7 @@ router.post('/:label', authenticateToken, async (req, res) => {
 
     const filename = `${label}-${user.uid}-${dayjs(data.timestamp).format('DD-MM-YYYY')}.csv`
 
-    await sendMail(process.env.SMTP_TO, `Questionnaire ${label} de ${user.uid}`, `Voir ${filename} en pièce-jointe.`, generateCSV(filename, ))
+    await sendMail(process.env.SMTP_TO, `Questionnaire ${label} de ${user.uid}`, `Voir ${filename} en pièce-jointe.`, generateCSV(filename, user.uid, data.results, data.timestamp))
 
     logger.info({ message: "Questionnaire completed" })
 

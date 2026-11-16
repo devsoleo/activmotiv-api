@@ -10,5 +10,3 @@ export const formSchema = z.object({
     results: z.array(formResultItemSchema),
     timestamp: z.number()
 })
-
-export type FormDTO = z.infer<typeof formSchema>

@@ -2,7 +2,7 @@ import dayjs from 'dayjs'
 import logger from '@/logger/index.js'
 import pool from '@/database/postgresql/index.js'
 import { sendMail } from '@/mailer/index.js'
-import { isUserInFormPhase } from '@/utils/phases.js'
+import { getUserStudyPhase } from '@/utils/phases.js'
 
 export const handleOpeningAlerts = async () => {
   const client = await pool.getClient()
@@ -20,7 +20,8 @@ export const handleOpeningAlerts = async () => {
     )
 
     for (const user of users) {
-      if (!isUserInFormPhase(user)) {
+      // Popups are active only during Phase B (getUserStudyPhase === 1) or team === 0
+      if (getUserStudyPhase(user, yesterday) !== 1 && user.team !== 0) {
         continue
       }
 
@@ -62,5 +63,3 @@ export const handleOpeningAlerts = async () => {
     client.release()
   }
 }
-
-export default handleOpeningAlerts

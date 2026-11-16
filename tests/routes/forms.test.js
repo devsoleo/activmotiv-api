@@ -71,3 +71,37 @@ describe('GET /forms/status', () => {
     expect(mockClient.release).toHaveBeenCalled()
   })
 })
+
+describe('POST /forms/:label', () => {
+  let mockClient
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockClient = {
+      query: vi.fn().mockResolvedValue({ rows: [{ id: 1 }] }),
+      release: vi.fn(),
+    }
+    pool.getClient.mockResolvedValue(mockClient)
+  })
+
+  it('enregistre le questionnaire et génère la pièce jointe CSV', async () => {
+    const userHeader = JSON.stringify({ id: 1, uid: 'USER001', team: 1 })
+    const payload = {
+      data: {
+        timestamp: 1700000000000,
+        results: [
+          { uid: 'Q01', question: 'Question 1', answer: 'Réponse 1' },
+          { uid: 'Q02', question: 'Question 2', answer: ['Choix A', 'Choix B'] }
+        ]
+      }
+    }
+
+    const res = await request(app)
+      .post('/forms/satisfaction')
+      .set('x-test-user', userHeader)
+      .send(payload)
+
+    expect(res.status).toBe(200)
+    expect(mockClient.release).toHaveBeenCalled()
+  })
+})

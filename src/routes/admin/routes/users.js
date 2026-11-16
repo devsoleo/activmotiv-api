@@ -1,71 +1,95 @@
 import express from 'express'
-import dayjs from 'dayjs'
-
 import logger from '@/logger/index.js'
 import pool from '@/database/postgresql/index.js'
-
-import { isAdmin } from '@/middlewares/auth.js'
+import { computeEndDate } from '@/utils/phases.js'
 
 const router = express.Router()
 
-router.post('/create', async (req, res) => {
-  const { account_uid, team, account_is_admin, creation_date, created_at } = req.body
-  const dateValue = creation_date || created_at
+// POST /admin/users/create - Create new user
+const handleUserCreate = async (req, res) => {
+  const { account_uid, account_is_admin, creation_date } = req.body || {}
 
-  if (!account_uid) {
-    return res.sendStatus(400)
+  if (!account_uid || typeof account_uid !== 'string' || !account_uid.trim()) {
+    return res.status(400).json({ error: "Le paramètre 'account_uid' est requis" })
   }
 
+  const cleanUid = account_uid.trim()
   const client = await pool.getClient()
+  let assignedTeam = 0
 
   try {
     await client.query('BEGIN')
 
-    let assignedTeam = team !== undefined && team !== null ? Number.parseInt(team, 10) : undefined
+    const isAdminBool = account_is_admin === true || account_is_admin === 'true'
 
-    if (assignedTeam === undefined || Number.isNaN(assignedTeam)) {
-      if (account_is_admin === true || account_is_admin === 'true') {
-        assignedTeam = 0
-      } else {
-        const countRes = await client.query('SELECT COUNT(*) FROM users WHERE team > 0')
-        const totalUsers = Number.parseInt(countRes.rows[0].count, 10)
+    if (!isAdminBool) {
+      const countRes = await client.query('SELECT COUNT(*) FROM users WHERE team > 0')
+      const totalUsers = Number.parseInt(countRes.rows[0].count, 10)
 
-        const usedInBlockCount = totalUsers % 3
-        let availableTeams = [1, 2, 3]
+      const usedInBlockCount = totalUsers % 3
+      let availableTeams = [1, 2, 3]
 
-        if (usedInBlockCount > 0) {
-          const recentRes = await client.query(
-            'SELECT team FROM users WHERE team > 0 ORDER BY id DESC LIMIT $1',
-            [usedInBlockCount]
-          )
-          const usedTeams = new Set(recentRes.rows.map(row => row.team))
-          availableTeams = availableTeams.filter(t => !usedTeams.has(t))
-        }
-
-        const randomIndex = Math.floor(Math.random() * availableTeams.length)
-        assignedTeam = availableTeams[randomIndex]
+      if (usedInBlockCount > 0) {
+        const recentRes = await client.query(
+          'SELECT team FROM users WHERE team > 0 ORDER BY id DESC LIMIT $1',
+          [usedInBlockCount]
+        )
+        const usedTeams = new Set(recentRes.rows.map(row => row.team))
+        availableTeams = availableTeams.filter(t => !usedTeams.has(t))
       }
+
+      if (!availableTeams || availableTeams.length === 0) {
+        availableTeams = [1, 2, 3]
+      }
+
+      const randomIndex = Math.floor(Math.random() * availableTeams.length)
+      assignedTeam = availableTeams[randomIndex]
     }
 
-    if (dateValue && dateValue.toString().trim() !== '') {
-      await client.query(
-        'INSERT INTO users (uid, team, created_at) VALUES ($1, $2, $3)',
-        [account_uid, assignedTeam, dateValue]
-      )
-    } else {
-      await client.query(
-        'INSERT INTO users (uid, team) VALUES ($1, $2)',
-        [account_uid, assignedTeam]
-      )
-    }
+    const validCreatedAt = (creation_date && !isNaN(Date.parse(creation_date)))
+      ? new Date(creation_date).toISOString()
+      : new Date().toISOString()
+
+    await client.query('INSERT INTO users (uid, team, created_at) VALUES ($1, $2, $3)', [cleanUid, assignedTeam, validCreatedAt])
 
     await client.query('COMMIT')
 
-    logger.info({ message: "User created", uid: account_uid, team: assignedTeam })
+    logger.info({ message: "User created", uid: cleanUid })
 
-    return res.sendStatus(200)
+    return res.status(200).json({ success: true, uid: cleanUid, team: assignedTeam })
   } catch (err) {
     await client.query('ROLLBACK')
+    logger.error("Error :", err)
+    return res.status(500).json({ error: "Erreur lors de la création de l'utilisateur" })
+  } finally {
+    client.release()
+  }
+}
+
+router.post('/create', handleUserCreate)
+
+router.get('/profile/:uid', async (req, res) => {
+  const { uid } = req.params
+
+  const client = await pool.getClient()
+
+  try {
+    const q1 = await client.query(
+      'SELECT id, uid, team, last_login, created_at FROM users WHERE uid = $1',
+      [uid]
+    )
+
+    if (q1.rows.length === 0) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" })
+    }
+
+    const user = q1.rows[0]
+
+    return res.status(200).json({
+      ...user,
+      ends_at: computeEndDate(user)
+    })
+  } catch (err) {
     logger.error("Error :", err)
     return res.sendStatus(500)
   } finally {
@@ -73,18 +97,45 @@ router.post('/create', async (req, res) => {
   }
 })
 
-router.get('/list', isAdmin, async (req, res) => {
+router.get('/list', async (req, res) => {
   const client = await pool.getClient()
 
   try {
-    const q1 = await client.query(
-      'SELECT id, uid, team, last_login, created_at, created_at AS creation_date FROM users ORDER BY id DESC',
-      []
-    )
+    const q1 = await client.query('SELECT id, uid, team, last_login, created_at FROM users ORDER BY id DESC', [])
 
-    return res.status(200).json({ users: q1.rows })
+    const users = q1.rows.map(user => ({
+      ...user,
+      ends_at: computeEndDate(user)
+    }))
+
+    return res.status(200).json({ users })
   } catch (err) {
     logger.error("Error :", err)
+    return res.sendStatus(500)
+  } finally {
+    client.release()
+  }
+})
+
+// GET /admin/users/:uid/end-date - Get calculated end date for a user
+router.get('/:uid/end-date', async (req, res) => {
+  const { uid } = req.params
+
+  const client = await pool.getClient()
+
+  try {
+    const result = await client.query(
+      'SELECT id, team, created_at FROM users WHERE uid = $1',
+      [uid]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" })
+    }
+
+    return res.status(200).json({ date: computeEndDate(result.rows[0]) })
+  } catch (err) {
+    logger.error("Error calculating user end date:", err)
     return res.sendStatus(500)
   } finally {
     client.release()
@@ -92,7 +143,7 @@ router.get('/list', isAdmin, async (req, res) => {
 })
 
 // PUT /admin/users/:id/team - Update user team/status
-router.put('/:id/team', isAdmin, async (req, res) => {
+router.put('/:id/team', async (req, res) => {
   const { id } = req.params
   const { team } = req.body
 
@@ -114,34 +165,42 @@ router.put('/:id/team', isAdmin, async (req, res) => {
   }
 })
 
-// GET /admin/users/:uid/end-date - Get calculated end date for a user
-router.get('/:uid/end-date', isAdmin, async (req, res) => {
-  const { uid } = req.params
+// DELETE /admin/users/:id - Delete a single user
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params
+  const client = await pool.getClient()
+
+  try {
+    const result = await client.query('DELETE FROM users WHERE id = $1 RETURNING id, uid', [id])
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" })
+    }
+    logger.info({ message: "User deleted", id, uid: result.rows[0].uid })
+    return res.status(200).json({ success: true, uid: result.rows[0].uid })
+  } catch (err) {
+    logger.error("Error deleting user:", err)
+    return res.status(500).json({ error: "Erreur lors de la suppression de l'utilisateur" })
+  } finally {
+    client.release()
+  }
+})
+
+// POST /admin/users/delete-batch - Delete multiple users by ID
+router.post('/delete-batch', async (req, res) => {
+  const { ids } = req.body
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: "Le paramètre ids (tableau) est requis" })
+  }
 
   const client = await pool.getClient()
 
   try {
-    const result = await client.query(
-      'SELECT id, team, created_at FROM users WHERE uid = $1',
-      [uid]
-    )
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Utilisateur non trouvé" })
-    }
-
-    const user = result.rows[0]
-
-    if (user.team <= 0) return res.status(200).json({ date: null })
-
-    const endDate = user.created_at
-      ? dayjs(user.created_at).tz().add(7 * 7 + ((user.team - 1) * 7), 'day').toISOString()
-      : null
-
-    return res.status(200).json({ date: endDate })
+    const result = await client.query('DELETE FROM users WHERE id = ANY($1::int[]) RETURNING id, uid', [ids])
+    logger.info({ message: "Users deleted in batch", deletedCount: result.rowCount, deleted: result.rows })
+    return res.status(200).json({ success: true, count: result.rowCount, deleted: result.rows })
   } catch (err) {
-    logger.error("Error calculating user end date:", err)
-    return res.sendStatus(500)
+    logger.error("Error batch deleting users:", err)
+    return res.status(500).json({ error: "Erreur lors de la suppression des utilisateurs" })
   } finally {
     client.release()
   }
